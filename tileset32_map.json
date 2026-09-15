@@ -1,0 +1,511 @@
+{
+  "tile_size": 32,
+  "columns": 8,
+  "rows": 9,
+  "tiles": [
+    {
+      "id": 0,
+      "name": "grass_left",
+      "col": 0,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 1,
+      "name": "grass_mid",
+      "col": 1,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 2,
+      "name": "grass_right",
+      "col": 2,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 3,
+      "name": "grass_single",
+      "col": 3,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 4,
+      "name": "dirt_left",
+      "col": 4,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 5,
+      "name": "dirt_mid",
+      "col": 5,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 6,
+      "name": "dirt_right",
+      "col": 6,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 7,
+      "name": "dirt_bottom",
+      "col": 7,
+      "row": 0,
+      "type": "solid"
+    },
+    {
+      "id": 8,
+      "name": "plat_left",
+      "col": 0,
+      "row": 1,
+      "type": "oneway"
+    },
+    {
+      "id": 9,
+      "name": "plat_mid",
+      "col": 1,
+      "row": 1,
+      "type": "oneway"
+    },
+    {
+      "id": 10,
+      "name": "plat_right",
+      "col": 2,
+      "row": 1,
+      "type": "oneway"
+    },
+    {
+      "id": 11,
+      "name": "blk_brick",
+      "col": 3,
+      "row": 1,
+      "type": "solid"
+    },
+    {
+      "id": 12,
+      "name": "blk_gum",
+      "col": 4,
+      "row": 1,
+      "type": "solid"
+    },
+    {
+      "id": 13,
+      "name": "blk_ice",
+      "col": 5,
+      "row": 1,
+      "type": "slippery"
+    },
+    {
+      "id": 14,
+      "name": "blk_cracked",
+      "col": 6,
+      "row": 1,
+      "type": "breakable"
+    },
+    {
+      "id": 15,
+      "name": "blk_choco",
+      "col": 7,
+      "row": 1,
+      "type": "solid"
+    },
+    {
+      "id": 16,
+      "name": "spikes_up",
+      "col": 0,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 17,
+      "name": "spikes_down",
+      "col": 1,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 18,
+      "name": "thorns",
+      "col": 2,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 19,
+      "name": "saw",
+      "col": 3,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 20,
+      "name": "slime_top",
+      "col": 4,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 21,
+      "name": "slime_body",
+      "col": 5,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 22,
+      "name": "goo_top",
+      "col": 6,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 23,
+      "name": "goo_body",
+      "col": 7,
+      "row": 2,
+      "type": "hazard"
+    },
+    {
+      "id": 24,
+      "name": "qblock",
+      "col": 0,
+      "row": 3,
+      "type": "bonus"
+    },
+    {
+      "id": 25,
+      "name": "coin",
+      "col": 1,
+      "row": 3,
+      "type": "pickup"
+    },
+    {
+      "id": 26,
+      "name": "spring",
+      "col": 2,
+      "row": 3,
+      "type": "bounce"
+    },
+    {
+      "id": 27,
+      "name": "checkpoint_top",
+      "col": 3,
+      "row": 3,
+      "type": "checkpoint"
+    },
+    {
+      "id": 28,
+      "name": "checkpoint_pole",
+      "col": 4,
+      "row": 3,
+      "type": "checkpoint"
+    },
+    {
+      "id": 29,
+      "name": "checkpoint_base",
+      "col": 5,
+      "row": 3,
+      "type": "checkpoint"
+    },
+    {
+      "id": 30,
+      "name": "door",
+      "col": 6,
+      "row": 3,
+      "type": "exit"
+    },
+    {
+      "id": 31,
+      "name": "ladder",
+      "col": 7,
+      "row": 3,
+      "type": "climb"
+    },
+    {
+      "id": 32,
+      "name": "grave",
+      "col": 0,
+      "row": 4,
+      "type": "corpse"
+    },
+    {
+      "id": 33,
+      "name": "bones",
+      "col": 1,
+      "row": 4,
+      "type": "corpse"
+    },
+    {
+      "id": 34,
+      "name": "torch",
+      "col": 2,
+      "row": 4,
+      "type": "deco"
+    },
+    {
+      "id": 35,
+      "name": "crystal",
+      "col": 3,
+      "row": 4,
+      "type": "deco"
+    },
+    {
+      "id": 36,
+      "name": "mushroom_sm",
+      "col": 4,
+      "row": 4,
+      "type": "deco"
+    },
+    {
+      "id": 37,
+      "name": "mushroom_lg",
+      "col": 5,
+      "row": 4,
+      "type": "deco"
+    },
+    {
+      "id": 38,
+      "name": "flower",
+      "col": 6,
+      "row": 4,
+      "type": "deco"
+    },
+    {
+      "id": 39,
+      "name": "grass_tuft",
+      "col": 7,
+      "row": 4,
+      "type": "deco"
+    },
+    {
+      "id": 40,
+      "name": "cloud_left",
+      "col": 0,
+      "row": 5,
+      "type": "bg"
+    },
+    {
+      "id": 41,
+      "name": "cloud_mid",
+      "col": 1,
+      "row": 5,
+      "type": "bg"
+    },
+    {
+      "id": 42,
+      "name": "cloud_right",
+      "col": 2,
+      "row": 5,
+      "type": "bg"
+    },
+    {
+      "id": 43,
+      "name": "hill",
+      "col": 3,
+      "row": 5,
+      "type": "bg"
+    },
+    {
+      "id": 44,
+      "name": "trunk",
+      "col": 4,
+      "row": 5,
+      "type": "bg"
+    },
+    {
+      "id": 45,
+      "name": "canopy",
+      "col": 5,
+      "row": 5,
+      "type": "bg"
+    },
+    {
+      "id": 46,
+      "name": "star",
+      "col": 6,
+      "row": 5,
+      "type": "deco"
+    },
+    {
+      "id": 47,
+      "name": "stepping_stones",
+      "col": 7,
+      "row": 5,
+      "type": "deco"
+    },
+    {
+      "id": 48,
+      "name": "grassrock_left",
+      "col": 0,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 49,
+      "name": "grassrock_mid",
+      "col": 1,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 50,
+      "name": "grassrock_right",
+      "col": 2,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 51,
+      "name": "grassrock_single",
+      "col": 3,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 52,
+      "name": "rock_left",
+      "col": 4,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 53,
+      "name": "rock_mid",
+      "col": 5,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 54,
+      "name": "rock_right",
+      "col": 6,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 55,
+      "name": "rock_bottom",
+      "col": 7,
+      "row": 6,
+      "type": "solid"
+    },
+    {
+      "id": 56,
+      "name": "path_left",
+      "col": 0,
+      "row": 7,
+      "type": "solid"
+    },
+    {
+      "id": 57,
+      "name": "path_mid",
+      "col": 1,
+      "row": 7,
+      "type": "solid"
+    },
+    {
+      "id": 58,
+      "name": "path_right",
+      "col": 2,
+      "row": 7,
+      "type": "solid"
+    },
+    {
+      "id": 59,
+      "name": "path_single",
+      "col": 3,
+      "row": 7,
+      "type": "solid"
+    },
+    {
+      "id": 60,
+      "name": "masonry_left",
+      "col": 4,
+      "row": 7,
+      "type": "solid"
+    },
+    {
+      "id": 61,
+      "name": "masonry_mid",
+      "col": 5,
+      "row": 7,
+      "type": "solid"
+    },
+    {
+      "id": 62,
+      "name": "masonry_right",
+      "col": 6,
+      "row": 7,
+      "type": "solid"
+    },
+    {
+      "id": 63,
+      "name": "path_slab",
+      "col": 7,
+      "row": 7,
+      "type": "oneway"
+    },
+    {
+      "id": 64,
+      "name": "rock_mid_b",
+      "col": 0,
+      "row": 8,
+      "type": "solid"
+    },
+    {
+      "id": 65,
+      "name": "rock_mid_c",
+      "col": 1,
+      "row": 8,
+      "type": "solid"
+    },
+    {
+      "id": 66,
+      "name": "grassrock_mid_b",
+      "col": 2,
+      "row": 8,
+      "type": "solid"
+    },
+    {
+      "id": 67,
+      "name": "grassrock_mid_c",
+      "col": 3,
+      "row": 8,
+      "type": "solid"
+    },
+    {
+      "id": 68,
+      "name": "rock_bottom_b",
+      "col": 4,
+      "row": 8,
+      "type": "solid"
+    },
+    {
+      "id": 69,
+      "name": "path_mid_b",
+      "col": 5,
+      "row": 8,
+      "type": "solid"
+    },
+    {
+      "id": 70,
+      "name": "path_mid_c",
+      "col": 6,
+      "row": 8,
+      "type": "solid"
+    },
+    {
+      "id": 71,
+      "name": "grass_mid_b",
+      "col": 7,
+      "row": 8,
+      "type": "solid"
+    }
+  ]
+}
