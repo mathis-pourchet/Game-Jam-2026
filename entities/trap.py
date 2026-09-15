@@ -11,7 +11,7 @@ from systems.level_manager import tileset_textures
 
 class Saw:
     """Scie circulaire qui fait des allers-retours (horizontal ou vertical)."""
-    damage = 1
+    damage = 30
 
     def __init__(self, x, y, vertical=False, travel=2.5 * TILE):
         self.origin = (x, y)

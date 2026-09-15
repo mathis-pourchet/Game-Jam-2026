@@ -11,7 +11,7 @@
       "boss_music": "music_boss",
       "boss": {
         "name": "Le Roi des Glaces",
-        "hp": 22
+        "hp": 220
       },
       "tips": [
         "Salut Finn ! Flèches ou Q/D pour bouger, ESPACE pour sauter. Garde ESPACE appuyé pour sauter plus haut !",

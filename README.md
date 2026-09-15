@@ -27,11 +27,13 @@ Options pour tester : `--boss` démarre devant l'arène du boss, `--col 120` dé
 
 ## Les ennemis
 
-- **Monstre niveau 1 (zombie)** : il patrouille, court vers Finn et lui bondit dessus. Certains avancent par grands bonds. On le tue d'un coup d'épée ou en lui sautant sur la tête.
-- **Monstre niveau 2 (sorcier squelette, champion)** : il griffe de près et lance des boules de feu en forme de crâne de loin. Il a 5 PV et on peut couper ses boules de feu à l'épée.
+- **Monstre niveau 1 (zombie)** : il patrouille, court vers Finn et lui bondit dessus (10 PV, 20 dégâts). Certains avancent par grands bonds (20 PV, 25 dégâts). On le tue à l'épée ou en lui sautant sur la tête.
+- **Monstre niveau 2 (sorcier squelette, champion)** : il griffe de près (35 dégâts) et lance des boules de feu en forme de crâne de loin (25 dégâts). Il a 50 PV et on peut couper ses boules de feu à l'épée.
 - **Boss final (Roi des Glaces)** : il s'envole puis retombe en créant des ondes de glace, tire des éclats de glace en éventail et fait tomber une pluie de stalactites. Les stalactites clignotent avant de tomber. À mi-vie, il enrage et appelle des zombies.
 
 ## Règles
+
+- **Vie** : Finn a une barre de vie (100 PV au départ, +25 par niveau de Résistance). Chaque source fait des dégâts différents : épines 15, pics 25, scies 30, ondes/éclats/stalactites du boss 20 à 30. Un cœur ramassé rend 35 PV. Les monstres ont une barre de vie au-dessus de la tête.
 
 - **But** : aller au bout de la map et vaincre le Roi des Glaces, puis entrer dans la porte de sortie.
 - **Mort normale** (zombie, piège, chute) : Finn revient au début de la map, qui est réinitialisée.
@@ -49,7 +51,8 @@ Options pour tester : `--boss` démarre devant l'arène du boss, `--col 120` dé
 | La map (ASCII, 8 sections de 40 colonnes) | `assets/maps/level_1.txt` (légende en haut de `systems/level_manager.py`) |
 | Morts max, nom du boss, PV, conseils de Jake | `config/levels.json` |
 | Stats, renaissance, vieillissement, seuils des 4 niveaux de muscles (`power_tiers`) | `config/stats_progression.json` |
-| Physique, commandes, taille d'écran | `settings.py` |
+| Physique, commandes, taille d'écran, soin des cœurs | `settings.py` |
+| PV et dégâts des monstres / dégâts des pièges | `entities/enemy.py`, `entities/trap.py`, `HAZARD_DAMAGE` dans `systems/level_manager.py` |
 | Découpe des planches (Finn niveaux 1 à 4, monstres, boss) | `tools/extract_sprites.py` puis relancer le script |
 | Jake, décors, icônes (dessinés par code) | `tools/generate_sprites.py` |
 | Bruitages, son de mort, musiques | `tools/generate_sounds.py` |

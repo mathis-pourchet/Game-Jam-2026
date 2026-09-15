@@ -18,18 +18,18 @@
     },
     "force": {
       "label": "Force",
-      "base": 1,
-      "per_level": 1,
+      "base": 10,
+      "per_level": 5,
       "max_level": 4,
-      "effect": "+1 dégât et épée plus longue",
+      "effect": "+5 dégâts et épée plus longue",
       "color": [255, 110, 90]
     },
     "resistance": {
       "label": "Résistance",
-      "base": 3,
-      "per_level": 1,
+      "base": 100,
+      "per_level": 25,
       "max_level": 4,
-      "effect": "+1 cœur maximum",
+      "effect": "+25 PV maximum",
       "color": [255, 120, 190]
     }
   },

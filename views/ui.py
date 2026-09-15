@@ -56,6 +56,31 @@ class OutlinedText:
         self.main.draw()
 
 
+def health_color(ratio):
+    """Vert quand la vie est pleine, jaune à mi-vie, rouge quand elle est presque vide."""
+    if ratio > 0.5:
+        return (110, 230, 120)
+    if ratio > 0.25:
+        return (255, 200, 60)
+    return (255, 70, 70)
+
+
+def health_bar(left, bottom, width, height, hp, max_hp, trail=None, border=COLOR_OUTLINE, border_width=2):
+    """Barre de vie : fond sombre, traînée claire (dégâts récents), remplissage coloré, contour."""
+    ratio = max(0.0, min(1.0, hp / max_hp))
+    arcade.draw_lrbt_rectangle_filled(left, left + width, bottom, bottom + height, (55, 30, 55))
+    if trail is not None:
+        trail_ratio = max(0.0, min(1.0, trail / max_hp))
+        if trail_ratio > ratio:
+            arcade.draw_lrbt_rectangle_filled(left + width * ratio, left + width * trail_ratio, bottom,
+                                              bottom + height, (255, 235, 190))
+    if ratio > 0:
+        arcade.draw_lrbt_rectangle_filled(left, left + width * ratio, bottom, bottom + height, health_color(ratio))
+        arcade.draw_lrbt_rectangle_filled(left, left + width * ratio, bottom + height * 0.62, bottom + height,
+                                          (255, 255, 255, 55))
+    arcade.draw_lrbt_rectangle_outline(left, left + width, bottom, bottom + height, border, border_width)
+
+
 def panel(left, right, bottom, top, fill=(30, 22, 48, 210), border=(255, 255, 255, 60), width=2):
     arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, fill)
     if border:
