@@ -34,12 +34,14 @@ class Player:
         self.progression = progression
         self.body = Body(0, 0, PLAYER_W, PLAYER_H)
         meta = assets.meta("finn.json")
-        self.anims = meta["anims"]
         cw, ch = meta["cell"]
         self.cell_h = ch
         self.foot = ch - meta["anchor"][1]
-        self.textures = {v: assets.frames(f"finn_{v}.png", cw, ch, meta["count"]) for v in meta["variants"]}
-        self.sprite = arcade.Sprite(self.textures["normal"][0][0])
+        # une planche par apparence : muscle1..4 (progression) et old1..2 (vieillissement)
+        self.variant_anims = {v: info["anims"] for v, info in meta["variants"].items()}
+        self.textures = {v: assets.frames(f"finn_{v}.png", cw, ch, info["count"])
+                         for v, info in meta["variants"].items()}
+        self.sprite = arcade.Sprite(self.textures["muscle1"][0][0])
         self.reset()
 
     def reset(self, x=0.0, bottom=0.0):
@@ -242,23 +244,23 @@ class Player:
         self.hp = min(self.progression.max_hp, self.hp + amount)
 
     # ------------------------------------------------------------------
-    def _frame(self):
-        a = self.anims
+    def _frame(self, a):
         t = self.anim_time
         b = self.body
         if self.dead:
             return a["hurt"][0] if self.death_time < 0.35 else a["dead"][0]
         if self.on_ladder:
-            return a["climb"][int(t * 7) % 2]
+            return a["climb"][int(t * 7) % len(a["climb"])]
         if self.attack_timer > 0:
-            seq = a["attack"] if b.on_ground else a["air_attack"][::-1]
+            seq = a["attack"] if b.on_ground else a["air_attack"]
             progress = 1 - self.attack_timer / ATTACK_TIME
             return seq[min(len(seq) - 1, int(progress * len(seq)))]
         if self.stun > 0:
             return a["hurt"][0]
         if not b.on_ground:
             if b.vy > 0:
-                return a["jump"][0 if b.vy > self.jump_velocity() * 0.7 else 1]
+                seq = a["jump"]
+                return seq[0 if b.vy > self.jump_velocity() * 0.7 else len(seq) - 1]
             return a["fall"][0]
         if self.land_timer > 0:
             return a["land"][0]
@@ -271,7 +273,7 @@ class Player:
     def update_sprite(self):
         variant = self.progression.visual_variant
         right, left = self.textures[variant]
-        self.sprite.texture = (right if self.facing > 0 else left)[self._frame()]
+        self.sprite.texture = (right if self.facing > 0 else left)[self._frame(self.variant_anims[variant])]
         sx, sy = VARIANT_SCALE[variant]
         self.sprite.scale = (sx, sy)
         self.sprite.center_x = self.body.center_x

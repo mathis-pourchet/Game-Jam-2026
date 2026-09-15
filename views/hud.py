@@ -60,7 +60,7 @@ class Hud:
         self.t_age.text = f"Âge : {prog.age_years} ans"
         label, color = PHASES[prog.aging_stage]
         if prog.aging_stage == 0 and prog.power > 0:
-            label, color = ("Force de l'âge", COLOR_GOLD)
+            label, color = (f"Muscles niveau {prog.muscle_level}", COLOR_GOLD)
         self.t_phase.text = label
         self.t_phase.set_color(color)
         self.t_deaths.draw()

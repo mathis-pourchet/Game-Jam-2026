@@ -7,7 +7,7 @@ from collections import deque
 import arcade
 
 from entities import assets
-from entities.enemy import Boss, Champion, Enemy, GooBall, Jumper, Shockwave
+from entities.enemy import Boss, Champion, Enemy, Jumper, Shockwave
 from entities.player import InputState, Player
 from entities.trap import Coin, Door, HeartPickup, Npc, Saw, Spring
 from settings import (COLOR_GOLD, COLOR_OUTLINE, CONFIG, FIXED_DT, FONT_PIXEL, FONT_TITLE, KEYS_ATTACK,
@@ -135,7 +135,7 @@ class GameView(arcade.View):
         self.enemy_sprites.append(enemy.sprite)
         if isinstance(enemy, (Champion, Boss)):
             enemy.glow = arcade.Sprite(assets.texture("glow.png"))
-            enemy.glow.color = (180, 80, 255) if isinstance(enemy, Champion) else (255, 60, 150)
+            enemy.glow.color = (90, 255, 160) if isinstance(enemy, Champion) else (130, 200, 255)
             self.enemy_glows.append(enemy.glow)
 
     def remove_enemy(self, enemy):
@@ -271,7 +271,7 @@ class GameView(arcade.View):
         if self.boss and self.boss.dead and not self.boss.removed and random.random() < dt * 10:
             bb = self.boss.body
             self.effects.burst(random.uniform(bb.x, bb.right), random.uniform(bb.y, bb.top),
-                               random.choice([(255, 120, 200), (255, 220, 90), (200, 255, 150)]), 16)
+                               random.choice([(200, 240, 255), (130, 200, 255), (255, 255, 255)]), 16)
             self.audio.play("hit", 0.6, min_interval=0.1)
         if p.dead:
             self.start_dying()
@@ -406,9 +406,9 @@ class GameView(arcade.View):
                     self.effects.shake(3, 0.08)
                     self.effects.float_text(e.body.center_x, e.body.top + 10, f"-{prog.damage}", (255, 240, 120), 14)
             for pr in self.projectiles:
-                if isinstance(pr, GooBall) and rects_overlap(box, pr.box()):
+                if pr.breakable and not pr.removed and rects_overlap(box, pr.box()):
                     pr.removed = True
-                    events.append(("splat", pr.x, pr.y))
+                    events.append(("splat", pr.x, pr.y, pr.color))
             for tx in tile_range(box[0], box[2]):
                 for ty in tile_range(box[1], box[3]):
                     if self.level.grid.get(tx, ty) == BREAKABLE:
@@ -430,10 +430,10 @@ class GameView(arcade.View):
                     self.hurt_player(damage, e.body.center_x, e.cause, e)
 
         for pr in self.projectiles:
-            if not pr.removed and rects_overlap(prect, pr.box()):
-                if self.hurt_player(pr.damage, pr.x, pr.cause, self.boss) and isinstance(pr, GooBall):
+            if not pr.removed and pr.harmful and rects_overlap(prect, pr.box()):
+                if self.hurt_player(pr.damage, pr.x, pr.cause, pr.owner) and pr.breakable:
                     pr.removed = True
-                    events.append(("splat", pr.x, pr.y))
+                    events.append(("splat", pr.x, pr.y, pr.color))
         for saw in self.saws:
             if rects_overlap(prect, saw.box()):
                 self.hurt_player(saw.damage, saw.x, DeathCause.NORMAL, None)
@@ -464,11 +464,11 @@ class GameView(arcade.View):
                 self.add_enemy(minion, summoned=True)
                 self.effects.burst(x, ev[2] + 30, (180, 90, 220), 20)
             elif kind == "shockwave":
-                self.add_projectile(Shockwave(ev[1], ev[2], ev[3], ev[4]))
-            elif kind == "spit":
-                self.add_projectile(GooBall(ev[1], ev[2], ev[3], ev[4]))
+                self.add_projectile(Shockwave(ev[1], ev[2], ev[3], ev[4], owner=self.boss))
+            elif kind == "projectile":
+                self.add_projectile(ev[1])
             elif kind == "splat":
-                self.effects.emit(ev[1], ev[2], (255, 110, 200), 10, speed=(80, 220), gravity=900, life=(0.3, 0.6))
+                self.effects.emit(ev[1], ev[2], ev[3], 12, speed=(80, 240), gravity=700, life=(0.3, 0.6), glow=True)
 
     def on_enemy_dead(self, enemy):
         self.score.add_kill(enemy.score_kind)
@@ -477,7 +477,7 @@ class GameView(arcade.View):
         if isinstance(enemy, Boss):
             self.on_boss_defeated()
             return
-        color = {"jumper": (120, 200, 255), "champion": (190, 110, 255)}.get(enemy.score_kind, (190, 220, 120))
+        color = {"champion": (120, 255, 170)}.get(enemy.score_kind, (190, 220, 120))
         self.effects.burst(x, y, color, 22)
         if isinstance(enemy, Champion):
             self.show_toast("Champion vaincu !", "Il laisse un coeur et des pièces", 2.2)
@@ -502,7 +502,7 @@ class GameView(arcade.View):
                 e.die([])
         for pr in self.projectiles:
             pr.removed = True
-        self.show_toast("LE ROI ZOMBIE EST VAINCU !", "Entre dans la porte pour sortir", 4.0)
+        self.show_toast("LE ROI DES GLACES EST VAINCU !", "Entre dans la porte pour sortir", 4.0)
 
     def cleanup(self):
         for e in [e for e in self.enemies if e.removed]:

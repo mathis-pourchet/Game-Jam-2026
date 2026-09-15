@@ -1,20 +1,25 @@
-"""Découpe et prépare les planches de sprites fournies pour le jeu.
+"""Découpe et prépare les planches de sprites fournies par l'équipe.
 
 Usage (depuis la racine du projet) :
     .venv/bin/python tools/extract_sprites.py
 
-Entrées :
-    assets/finn/image.png     planche de Finn (fond « damier » peint, pas de transparence)
-    assets/monstre/image.png  planche du zombie bonbon (cases de 32x32, transparente)
-Sorties :
-    assets/sprites/finn_<variante>.png   + assets/sprites/finn.json
-    assets/sprites/zombie_<variante>.png + assets/sprites/zombie.json
+Entrées (fond « damier » peint, pas de transparence) :
+    assets/finn/finn-muscle-niveau-1.png       Finn, muscles niveau 1
+    assets/finn/finn-muscle-niveau-2-à-4.png   Finn, muscles niveaux 2, 3 et 4 (3 panneaux)
+    assets/monstre-niveau-1/zombie.png         monstre niveau 1 (zombie)
+    assets/monstre-niveau-2/monstre.png        monstre niveau 2 (sorcier squelette, champion)
+    assets/Boss-final/boss.png                 boss final (Roi des Glaces)
+Sorties (assets/sprites/) :
+    finn_muscle1..4.png, finn_old1.png, finn_old2.png + finn.json
+    monster_zombie.png, monster_lich.png, monster_boss.png + monsters.json
+    proj_fireball.png, proj_ice.png
 
-Variantes de Finn (progression par la mort) :
-    normal, muscle1, muscle2 (plus fort), old1, old2 (vieillissement)
+Les planches sont découpées automatiquement (détection des sprites, rangés en
+lignes) : les tables *_ANIMS disent quelle ligne / quelle position correspond à
+quelle animation. Le vieux Finn (vieillissement) est dérivé du niveau 1.
 """
-import colorsys
 import json
+import math
 from collections import deque
 from pathlib import Path
 
@@ -24,31 +29,10 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "sprites"
 OUTLINE = (27, 20, 38, 255)
 
+
 # --------------------------------------------------------------------------
-# Finn
+# Détourage et détection
 # --------------------------------------------------------------------------
-FINN_SCALE = 0.46
-CELL_W, CELL_H = 96, 64
-ANCHOR_X = 48      # centre du chapeau dans la case
-FOOT_Y = 62        # ligne des pieds (depuis le haut de la case)
-
-# Boîtes (x1, y1, x2, y2) des sprites dans assets/finn/image.png
-FINN_BOXES = {
-    "idle": [(28, 86, 90, 201), (132, 87, 195, 201), (235, 87, 296, 201), (334, 87, 397, 201)],
-    "walk": [(28, 249, 99, 362), (134, 251, 203, 362), (232, 251, 300, 362),
-             (334, 250, 402, 363), (434, 250, 495, 363), (523, 251, 603, 362)],
-    "run": [(30, 415, 92, 532), (125, 412, 214, 524), (234, 409, 310, 526), (330, 410, 407, 525),
-            (424, 411, 500, 515), (524, 407, 591, 525), (612, 407, 685, 524)],
-    "jump": [(892, 94, 967, 211), (1005, 82, 1076, 195)],
-    "fall": [(1104, 87, 1175, 205)],
-    "land": [(1219, 103, 1286, 210)],
-    "attack": [(772, 260, 863, 390), (891, 258, 1008, 389), (1032, 268, 1154, 389), (1165, 280, 1246, 390)],
-    "air_attack": [(28, 634, 139, 738), (389, 597, 471, 729)],
-    "hurt": [(772, 458, 862, 571), (907, 455, 979, 572)],
-    "dead": [(774, 696, 971,751), (1007, 696, 1148, 752)],
-}
-
-
 def _is_checker(c, strict=False):
     r, g, b = c
     m = (r + g + b) / 3
@@ -97,6 +81,54 @@ def remove_checker(im):
     return out
 
 
+def components(cut, min_area=300, k=2):
+    """Boîtes (x1, y1, x2, y2, aire) des sprites, détectées à demi-résolution."""
+    w0, h0 = cut.size
+    small = cut.getchannel("A").resize((w0 // k, h0 // k), Image.NEAREST)
+    w, h = small.size
+    m = small.load()
+    seen = bytearray(w * h)
+    boxes = []
+    for y0 in range(h):
+        for x0 in range(w):
+            if seen[y0 * w + x0] or not m[x0, y0]:
+                continue
+            q = deque([(x0, y0)])
+            seen[y0 * w + x0] = 1
+            x1 = x2 = x0
+            y1 = y2 = y0
+            n = 0
+            while q:
+                x, y = q.popleft()
+                n += 1
+                x1, x2, y1, y2 = min(x1, x), max(x2, x), min(y1, y), max(y2, y)
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < w and 0 <= ny < h and not seen[ny * w + nx] and m[nx, ny]:
+                            seen[ny * w + nx] = 1
+                            q.append((nx, ny))
+            if n * k * k >= min_area:
+                boxes.append((x1 * k, y1 * k, x2 * k + k, y2 * k + k, n * k * k))
+    return boxes
+
+
+def group_rows(boxes):
+    """Range les boîtes en lignes (de haut en bas), chaque ligne triée de gauche à droite."""
+    boxes = sorted(boxes, key=lambda b: (b[1] + b[3]) / 2)
+    heights = sorted(b[3] - b[1] for b in boxes if b[4] >= 2000) or [50]
+    med = heights[len(heights) // 2]
+    rows = []
+    for b in boxes:
+        cy = (b[1] + b[3]) / 2
+        if rows and abs(cy - rows[-1][0]) < med * 0.5:
+            rows[-1][1].append(b)
+            rows[-1][0] = sum((c[1] + c[3]) / 2 for c in rows[-1][1]) / len(rows[-1][1])
+        else:
+            rows.append([cy, [b]])
+    return [sorted(r[1], key=lambda b: b[0]) for r in rows]
+
+
 def harden_alpha(im, threshold=110):
     im = im.copy()
     p = im.load()
@@ -107,8 +139,88 @@ def harden_alpha(im, threshold=110):
     return im
 
 
+def scaled_crop(cut, box, scale, max_w=None):
+    x1, y1, x2, y2 = box[:4]
+    if max_w:
+        x2 = min(x2, x1 + max_w)
+    crop = cut.crop((x1 - 2, y1 - 2, x2 + 2, y2 + 2))
+    size = (max(1, round(crop.width * scale)), max(1, round(crop.height * scale)))
+    return harden_alpha(crop.resize(size, Image.LANCZOS))
+
+
 def opaque_bbox(im):
     return im.getchannel("A").getbbox()
+
+
+def body_center_x(im):
+    """Centre horizontal du corps (moyenne des pixels opaques de la partie basse)."""
+    p = im.load()
+    bb = opaque_bbox(im)
+    top = bb[1] + (bb[3] - bb[1]) * 0.4
+    xs = [x for y in range(int(top), bb[3]) for x in range(bb[0], bb[2]) if p[x, y][3]]
+    return sum(xs) / len(xs) if xs else (bb[0] + bb[2]) / 2
+
+
+def pack(images, anchors, min_w=0, min_h=0, pad=2):
+    """Place chaque image dans une case commune : ancre au centre, pieds en bas."""
+    boxes = [opaque_bbox(im) for im in images]
+    half = max(max(ax - bb[0], bb[2] - ax) for bb, ax in zip(boxes, anchors))
+    cell_w = max(min_w, 2 * math.ceil(half) + 2 * pad)
+    cell_h = max(min_h, max(bb[3] - bb[1] for bb in boxes) + 2 * pad)
+    cells = []
+    for im, bb, ax in zip(images, boxes, anchors):
+        cell = Image.new("RGBA", (cell_w, cell_h), (0, 0, 0, 0))
+        cell.alpha_composite(im, (round(cell_w / 2 - ax), cell_h - pad - bb[3]))
+        cells.append(cell)
+    return cells, cell_w, cell_h
+
+
+def save_strip(cells, name):
+    w, h = cells[0].size
+    strip = Image.new("RGBA", (w * len(cells), h), (0, 0, 0, 0))
+    for i, c in enumerate(cells):
+        strip.alpha_composite(c, (i * w, 0))
+    strip.save(OUT / name)
+
+
+# --------------------------------------------------------------------------
+# Finn
+# --------------------------------------------------------------------------
+FINN1_SHEET = ROOT / "assets" / "finn" / "finn-muscle-niveau-1.png"
+FINN24_SHEET = ROOT / "assets" / "finn" / "finn-muscle-niveau-2-à-4.png"
+FINN1_SCALE = 0.46
+FINN24_SCALE = 0.435
+
+# Boîtes (x1, y1, x2, y2) des sprites dans finn-muscle-niveau-1.png
+FINN1_BOXES = {
+    "idle": [(28, 86, 90, 201), (132, 87, 195, 201), (235, 87, 296, 201), (334, 87, 397, 201)],
+    "walk": [(28, 249, 99, 362), (134, 251, 203, 362), (232, 251, 300, 362),
+             (334, 250, 402, 363), (434, 250, 495, 363), (523, 251, 603, 362)],
+    "run": [(30, 415, 92, 532), (125, 412, 214, 524), (234, 409, 310, 526), (330, 410, 407, 525),
+            (424, 411, 500, 515), (524, 407, 591, 525), (612, 407, 685, 524)],
+    "jump": [(892, 94, 967, 211), (1005, 82, 1076, 195)],
+    "fall": [(1104, 87, 1175, 205)],
+    "land": [(1219, 103, 1286, 210)],
+    "attack": [(772, 260, 863, 390), (891, 258, 1008, 389), (1032, 268, 1154, 389), (1165, 280, 1246, 390)],
+    "air_attack": [(389, 597, 471, 729), (28, 634, 139, 738)],
+    "hurt": [(772, 458, 862, 571), (907, 455, 979, 572)],
+    "dead": [(774, 696, 971, 751), (1007, 696, 1148, 752)],
+}
+
+# finn-muscle-niveau-2-à-4.png : anim -> (ligne, positions dans chaque panneau)
+FINN24_ANIMS = {
+    "idle": (0, [0, 1, 2, 3, 4]),
+    "walk": (1, [0, 1, 2, 3, 4, 5]),
+    "run": (2, [0, 1, 2, 3, 4]),
+    "jump": (3, [0, 1]),
+    "fall": (3, [3]),
+    "land": (3, [4]),
+    "climb": (3, [2, 3]),
+    "attack": (4, [0, 1, 2, 3]),
+    "air_attack": (4, [1, 3]),
+    "hurt": (5, [0, 1]),
+    "dead": (6, [0, 1]),
+}
 
 
 def is_hat(r, g, b):
@@ -168,38 +280,6 @@ def add_outline(im):
     return out
 
 
-def finn_frames():
-    sheet = remove_checker(Image.open(ROOT / "assets" / "finn" / "image.png"))
-    frames, anims = [], {}
-    for name, boxes in FINN_BOXES.items():
-        anims[name] = []
-        for (x1, y1, x2, y2) in boxes:
-            crop = sheet.crop((x1 - 2, y1 - 2, x2 + 3, y2 + 3))
-            small = crop.resize((round(crop.width * FINN_SCALE), round(crop.height * FINN_SCALE)), Image.LANCZOS)
-            small = harden_alpha(small)
-            bb = opaque_bbox(small)
-            ax = (bb[0] + bb[2]) / 2 if name == "dead" else hat_center_x(small)
-            cell = Image.new("RGBA", (CELL_W, CELL_H), (0, 0, 0, 0))
-            cell.alpha_composite(small, (round(ANCHOR_X - ax), FOOT_Y - bb[3]))
-            anims[name].append(len(frames))
-            frames.append(cell)
-    # Pas d'animation d'échelle dans la planche : on réutilise le saut (bras levés) en miroir.
-    anims["climb"] = [anims["jump"][1], len(frames)]
-    frames.append(frames[anims["jump"][1]].transpose(Image.FLIP_LEFT_RIGHT))
-    return frames, anims
-
-
-def widen_body(cell, factor):
-    """Élargit tout ce qui est sous la tête (torse, bras, jambes) : Finn se muscle."""
-    hb = head_bottom(cell)
-    body = cell.crop((0, hb + 1, CELL_W, CELL_H))
-    wide = body.resize((round(CELL_W * factor), body.height), Image.NEAREST)
-    out = Image.new("RGBA", cell.size, (0, 0, 0, 0))
-    out.alpha_composite(wide, (round(ANCHOR_X - ANCHOR_X * factor), hb + 1))
-    out.alpha_composite(cell.crop((0, 0, CELL_W, hb + 1)), (0, 0))
-    return out
-
-
 def _desaturate(c, amount, darken):
     r, g, b, a = c
     if not a:
@@ -211,6 +291,7 @@ def _desaturate(c, amount, darken):
 
 def age_frame(cell, stage, dead=False):
     """Vieillit Finn : couleurs délavées, chapeau jauni, barbe grise, dos voûté."""
+    w, h = cell.size
     amount, darken = (0.45, 0.95) if stage == 1 else (0.7, 0.9)
     hat_col = (226, 222, 206, 255) if stage == 1 else (205, 204, 198, 255)
     beard_col = (196, 196, 204, 255) if stage == 1 else (242, 242, 246, 255)
@@ -223,8 +304,8 @@ def age_frame(cell, stage, dead=False):
 
     recol = Image.new("RGBA", cell.size, (0, 0, 0, 0))
     rp = recol.load()
-    for y in range(CELL_H):
-        for x in range(CELL_W):
+    for y in range(h):
+        for x in range(w):
             c = src[x, y]
             if not c[3]:
                 continue
@@ -237,21 +318,19 @@ def age_frame(cell, stage, dead=False):
                 rp[x, y] = _desaturate(c, amount, darken)
     if dead:
         return recol
-    # barbe : sous le visage (dernières lignes de peau à l'intérieur du chapeau, pas les mains)
-    skin = [(x, y) for y in range(hb + 1) for x in range(CELL_W)
+    skin = [(x, y) for y in range(hb + 1) for x in range(w)
             if in_head(x, y) and abs(x - hcx) <= HAT_HALF - 3 and src[x, y][3] and is_skin(*src[x, y][:3])]
     out = Image.new("RGBA", cell.size, (0, 0, 0, 0))
-    body = recol.crop((0, hb + 1, CELL_W, CELL_H))
     dx, dy = (1, 1) if stage == 1 else (2, 3)
-    out.alpha_composite(body, (0, hb + 1))
-    out.alpha_composite(recol.crop((0, 0, CELL_W, hb + 1)), (dx, dy))
+    out.alpha_composite(recol.crop((0, hb + 1, w, h)), (0, hb + 1))
+    out.alpha_composite(recol.crop((0, 0, w, hb + 1)), (dx, dy))
     if skin:
         fb = max(y for _, y in skin)
         xs = [x for x, y in skin if y >= fb - 2]
         x0, x1 = min(xs) + dx, max(xs) + dx
         length = 4 if stage == 1 else 8
         op = out.load()
-        for y in range(fb - 1 + dy, min(CELL_H - 1, fb + length + dy)):
+        for y in range(fb - 1 + dy, min(h - 1, fb + length + dy)):
             shrink = max(0, (y - (fb + dy)) // 2)
             for x in range(x0 + shrink, x1 - shrink + 1):
                 op[x, y] = beard_col
@@ -259,116 +338,134 @@ def age_frame(cell, stage, dead=False):
     return out
 
 
+def finn_level1():
+    cut = remove_checker(Image.open(FINN1_SHEET))
+    frames, anims = [], {}
+    for name, boxes in FINN1_BOXES.items():
+        anims[name] = []
+        for box in boxes:
+            anims[name].append(len(frames))
+            frames.append(scaled_crop(cut, box, FINN1_SCALE))
+    # pas d'animation d'échelle sur cette planche : le saut bras levés, en miroir
+    anims["climb"] = [anims["jump"][1], len(frames)]
+    frames.append(frames[anims["jump"][1]].transpose(Image.FLIP_LEFT_RIGHT))
+    return frames, anims
+
+
+def finn_levels_2_to_4():
+    """Renvoie [(frames, anims)] pour les panneaux gauche, milieu et droite (niveaux 2, 3, 4)."""
+    cut = remove_checker(Image.open(FINN24_SHEET))
+    boxes = [b for b in components(cut) if b[3] - b[1] < 400]      # sans les traits de séparation
+    rows = group_rows(boxes)
+    edges = (cut.width / 3, cut.width * 2 / 3)
+    panels = [dict() for _ in range(3)]
+    for r, row in enumerate(rows):
+        row = [b for b in row if b[4] >= 1500]                        # sans les petites marques rouges
+        widths = sorted(b[2] - b[0] for b in row)
+        med = widths[len(widths) // 2]
+        row = [b for b in row if b[2] - b[0] <= med * 1.8]           # sans les sprites collés entre eux
+        for b in row:
+            cx = (b[0] + b[2]) / 2
+            panel = 0 if cx < edges[0] else 1 if cx < edges[1] else 2
+            panels[panel].setdefault(r, []).append(b)
+    result = []
+    for p, found in enumerate(panels):
+        frames, anims = [], {}
+        for name, (row, positions) in FINN24_ANIMS.items():
+            available = found.get(row, [])
+            anims[name] = []
+            for pos in positions:
+                if pos < len(available):
+                    anims[name].append(len(frames))
+                    frames.append(scaled_crop(cut, available[pos], FINN24_SCALE))
+            if not anims[name]:
+                raise ValueError(f"Finn niveau {p + 2} : animation {name} introuvable (ligne {row})")
+        result.append((frames, anims))
+    return result
+
+
 def build_finn():
-    frames, anims = finn_frames()
-    dead = set(anims["dead"])
-    variants = {
-        "normal": frames,
-        "muscle1": [f if i in dead else widen_body(f, 1.18) for i, f in enumerate(frames)],
-        "muscle2": [f if i in dead else widen_body(f, 1.36) for i, f in enumerate(frames)],
-        "old1": [age_frame(f, 1, i in dead) for i, f in enumerate(frames)],
-        "old2": [age_frame(f, 2, i in dead) for i, f in enumerate(frames)],
-    }
-    for name, fr in variants.items():
-        strip = Image.new("RGBA", (CELL_W * len(fr), CELL_H), (0, 0, 0, 0))
-        for i, f in enumerate(fr):
-            strip.alpha_composite(f, (i * CELL_W, 0))
-        strip.save(OUT / f"finn_{name}.png")
-    meta = {"cell": [CELL_W, CELL_H], "anchor": [ANCHOR_X, FOOT_Y], "count": len(frames),
-            "variants": list(variants), "anims": anims}
+    variants = {"muscle1": finn_level1()}
+    for level, data in enumerate(finn_levels_2_to_4(), start=2):
+        variants[f"muscle{level}"] = data
+    all_frames = [f for frames, _ in variants.values() for f in frames]
+    dead_ids = {id(frames[i]) for frames, anims in variants.values() for i in anims["dead"]}
+    anchors = [(opaque_bbox(f)[0] + opaque_bbox(f)[2]) / 2 if id(f) in dead_ids else hat_center_x(f)
+               for f in all_frames]
+    cells, cell_w, cell_h = pack(all_frames, anchors, min_w=96, min_h=64)
+    meta = {"cell": [cell_w, cell_h], "anchor": [cell_w // 2, cell_h - 2], "variants": {}}
+    start = 0
+    for name, (frames, anims) in list(variants.items()):
+        mine = cells[start:start + len(frames)]
+        start += len(frames)
+        variants[name] = (mine, anims)
+    base_cells, base_anims = variants["muscle1"]
+    dead = set(base_anims["dead"])
+    variants["old1"] = ([age_frame(c, 1, i in dead) for i, c in enumerate(base_cells)], base_anims)
+    variants["old2"] = ([age_frame(c, 2, i in dead) for i, c in enumerate(base_cells)], base_anims)
+    for name, (frames, anims) in variants.items():
+        save_strip(frames, f"finn_{name}.png")
+        meta["variants"][name] = {"count": len(frames), "anims": anims}
     (OUT / "finn.json").write_text(json.dumps(meta, indent=2))
-    print(f"Finn : {len(frames)} frames x {len(variants)} variantes")
+    print(f"Finn : case {cell_w}x{cell_h}, variantes " +
+          ", ".join(f"{n} ({len(f)})" for n, (f, _) in variants.items()))
 
 
 # --------------------------------------------------------------------------
-# Zombie bonbon
+# Monstres et boss
 # --------------------------------------------------------------------------
-Z = 32
-# (ligne, colonne) des cases dans assets/monstre/image.png
-ZOMBIE_ANIMS = {
-    "walk": [(0, c) for c in range(14)],
-    "attack": [(4, 9), (4, 10), (4, 11), (4, 12), (4, 13)],
-    "hop": [(3, 13), (3, 14), (3, 15)],
-    "stun": [(7, 5), (7, 6), (7, 7)],
-    "die": [(6, 8), (6, 9), (6, 10), (6, 11)],
-    "burst": [(8, 12), (8, 13), (8, 14)],
+# anim -> (ligne, positions) dans la liste des sprites détectés (aire >= 300 px)
+MONSTERS = {
+    "zombie": {
+        "sheet": "assets/monstre-niveau-1/zombie.png", "scale": 0.367,
+        "anims": {"idle": (0, [0, 1, 2, 3, 4]), "walk": (1, [0, 1, 2, 3, 4, 5]), "run": (2, [0, 1, 2, 3, 4, 5]),
+                  "lunge": (3, [0, 1, 2, 3, 4]), "spit": (4, [0, 1, 3, 4, 5]), "hurt": (5, [0, 1, 2]),
+                  "die": (5, [3, 4, 5])},
+    },
+    "lich": {
+        "sheet": "assets/monstre-niveau-2/monstre.png", "scale": 0.447,
+        "anims": {"idle": (0, [0, 1, 2, 3]), "attack": (0, [4, 5, 6, 7]), "walk": (1, [0, 1, 2, 3, 4, 5]),
+                  "run": (2, [0, 1, 2, 3, 4, 5]), "cast": (3, [0, 3, 5]), "hurt": (4, [0, 1, 2]),
+                  "die": (4, [3, 4, 5])},
+        "projectile": ("proj_fireball.png", 3, 7, 0.447),
+    },
+    "boss": {
+        "sheet": "assets/Boss-final/boss.png", "scale": 0.93,
+        "anims": {"idle": (0, [0, 1, 2, 3, 4]), "taunt": (0, [5, 6, 7, 8]), "float": (1, [0, 1, 2, 3, 4, 5, 6, 7]),
+                  "glide": (2, [0, 1, 2]), "charge": (2, [4]), "overhead": (2, [5, 7]), "shoot": (2, [8]),
+                  "hurt": (3, [0, 1, 2, 3, 4, 5, 6, 7]), "die": (4, [0, 1, 2, 3, 4, 5])},
+        "max_width": {"shoot": 215},
+        "projectile": ("proj_ice.png", 2, 12, 0.55),
+    },
 }
 
 
-def _shift_hue(im, hue, sat_mul=1.0, val_mul=1.0, eye_color=None):
-    im = im.copy()
-    p = im.load()
-    for y in range(im.height):
-        for x in range(im.width):
-            r, g, b, a = p[x, y]
-            if not a:
-                continue
-            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-            is_eye = s > 0.45 and v > 0.7 and 0.15 < h < 0.3
-            is_tongue = (h > 0.85 or h < 0.03) and s > 0.25
-            if is_eye:
-                if eye_color:
-                    p[x, y] = eye_color + (a,)
-                continue
-            if is_tongue:
-                continue
-            nr, ng, nb = colorsys.hsv_to_rgb(hue, min(1, s * sat_mul + 0.12), min(1, v * val_mul))
-            p[x, y] = (int(nr * 255), int(ng * 255), int(nb * 255), a)
-    return im
-
-
-def _crown(frame, canvas_h):
-    """Pose une couronne dorée sur la tête du zombie (pour le boss)."""
-    top_pad = canvas_h - Z
-    out = Image.new("RGBA", (Z, canvas_h), (0, 0, 0, 0))
-    out.alpha_composite(frame, (0, top_pad))
-    bb = opaque_bbox(out)
-    top = bb[1]
-    op = out.load()
-    xs = [x for x in range(Z) if op[x, top + 2][3]]
-    cx = (min(xs) + max(xs)) // 2 if xs else Z // 2
-    cx = max(7, min(Z - 8, cx))
-    crown = Image.new("RGBA", out.size, (0, 0, 0, 0))
-    p = crown.load()
-    gold, dark, gem = (255, 206, 60, 255), (214, 140, 24, 255), (255, 90, 170, 255)
-    base_y = top + 1
-    for x in range(cx - 5, cx + 6):
-        for y in range(base_y - 2, base_y + 1):
-            p[x, y] = gold if y < base_y else dark
-    for x, h in ((cx - 5, 3), (cx - 4, 2), (cx, 4), (cx - 1, 2), (cx + 1, 2), (cx + 5, 3), (cx + 4, 2)):
-        for y in range(base_y - 2 - h, base_y - 2):
-            p[x, y] = gold
-    p[cx, base_y - 1] = gem
-    p[cx - 3, base_y - 1] = (120, 220, 255, 255)
-    p[cx + 3, base_y - 1] = (120, 220, 255, 255)
-    out.alpha_composite(add_outline(crown))
-    return out
-
-
-def build_zombies():
-    sheet = Image.open(ROOT / "assets" / "monstre" / "image.png").convert("RGBA")
-    order, anims = [], {}
-    for name, cells in ZOMBIE_ANIMS.items():
-        anims[name] = list(range(len(order), len(order) + len(cells)))
-        order.extend(cells)
-    base = [sheet.crop((c * Z, r * Z, c * Z + Z, r * Z + Z)) for r, c in order]
-    variants = {
-        "normal": (base, Z),
-        "jumper": ([_shift_hue(f, 0.53, 1.3, 1.05) for f in base], Z),
-        "champion": ([_shift_hue(f, 0.78, 1.5, 1.0, eye_color=(255, 70, 70)) for f in base], Z),
-        "boss": ([_crown(_shift_hue(f, 0.93, 1.4, 1.12), Z + 8) for f in base], Z + 8),
-    }
-    for name, (fr, h) in variants.items():
-        strip = Image.new("RGBA", (Z * len(fr), h), (0, 0, 0, 0))
-        for i, f in enumerate(fr):
-            strip.alpha_composite(f, (i * Z, h - f.height))
-        strip.save(OUT / f"zombie_{name}.png")
-    meta = {"count": len(order), "cells": {k: [Z, h] for k, (_, h) in variants.items()}, "anims": anims}
-    (OUT / "zombie.json").write_text(json.dumps(meta, indent=2))
-    print(f"Zombie : {len(order)} frames x {len(variants)} variantes")
+def build_monsters():
+    meta = {"projectiles": {}}
+    for name, spec in MONSTERS.items():
+        cut = remove_checker(Image.open(ROOT / spec["sheet"]))
+        rows = group_rows(components(cut))
+        frames, anims = [], {}
+        for anim, (row, positions) in spec["anims"].items():
+            anims[anim] = []
+            for pos in positions:
+                box = rows[row][pos]
+                anims[anim].append(len(frames))
+                frames.append(scaled_crop(cut, box, spec["scale"], spec.get("max_width", {}).get(anim)))
+        cells, cell_w, cell_h = pack(frames, [body_center_x(f) for f in frames])
+        save_strip(cells, f"monster_{name}.png")
+        meta[name] = {"file": f"monster_{name}.png", "cell": [cell_w, cell_h], "count": len(cells), "foot": 2,
+                      "anims": anims}
+        if "projectile" in spec:
+            file, row, pos, scale = spec["projectile"]
+            proj = scaled_crop(cut, rows[row][pos], scale)
+            proj.crop(opaque_bbox(proj)).save(OUT / file)
+            meta["projectiles"][file[5:-4]] = file
+        print(f"{name} : {len(cells)} frames, case {cell_w}x{cell_h}")
+    (OUT / "monsters.json").write_text(json.dumps(meta, indent=2))
 
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     build_finn()
-    build_zombies()
+    build_monsters()

@@ -14,8 +14,9 @@ Légende
   ^  pics   v  pics au plafond   t  ronces   ~  gomme toxique (mortelle)
   o  pièce   h  cœur   S  ressort   H  échelle
   P  départ de Finn   J  Jake (conseil)   !  panneau (conseil)
-  z  zombie   j  zombie sauteur   Z  champion (tue = renaissance plus fort)
-  K  Roi Zombie (boss)   w  scie horizontale   y  scie verticale
+  z  zombie (monstre niveau 1)   j  zombie qui bondit (niveau 1)
+  Z  sorcier squelette (monstre niveau 2, champion : tue = renaissance plus fort)
+  K  Roi des Glaces (boss final)   w  scie horizontale   y  scie verticale
   |  grille de l'arène (se ferme derrière Finn)   r  réapparition devant l'arène
   D  porte de sortie (apparaît quand le boss est vaincu)   F  drapeau
   T  arbre   f fleur   m champignon   n gros champignon   c cristal

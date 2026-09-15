@@ -12,9 +12,10 @@ from settings import ATTACK_REACH, ATTACK_REACH_PER_FORCE, CONFIG, TILE
 STAT_ORDER = ["jump", "speed", "force", "resistance"]
 
 VARIANT_SCALE = {
-    "normal": (1.0, 1.0),
-    "muscle1": (1.05, 1.04),
-    "muscle2": (1.1, 1.08),
+    "muscle1": (1.0, 1.0),
+    "muscle2": (1.03, 1.03),
+    "muscle3": (1.06, 1.05),
+    "muscle4": (1.1, 1.08),
     "old1": (1.0, 0.96),
     "old2": (0.98, 0.92),
 }
@@ -86,17 +87,18 @@ class ProgressionSystem:
         return sum(self.levels.values())
 
     @property
+    def muscle_level(self):
+        """Niveau de muscles de 1 à 4 (planches assets/finn/finn-muscle-niveau-*)."""
+        return sum(1 for threshold in self.power_tiers if self.power >= threshold)
+
+    @property
     def visual_variant(self):
         stage = self.aging_stage
         if stage == 2:
             return "old2"
         if stage == 1:
             return "old1"
-        if self.power >= self.power_tiers[2]:
-            return "muscle2"
-        if self.power >= self.power_tiers[1]:
-            return "muscle1"
-        return "normal"
+        return f"muscle{self.muscle_level}"
 
     @property
     def aura_strength(self):

@@ -7,8 +7,8 @@ from views.ui import OutlinedText
 
 CAUSES = {
     DeathCause.NORMAL: "Terrassé par un zombie ou un piège...",
-    DeathCause.CHAMPION: "Vaincu par un CHAMPION !",
-    DeathCause.BOSS: "Écrasé par le Roi Zombie !",
+    DeathCause.CHAMPION: "Vaincu par un sorcier squelette (CHAMPION) !",
+    DeathCause.BOSS: "Gelé par le Roi des Glaces !",
 }
 
 
@@ -36,7 +36,7 @@ class DeathCardView(arcade.View):
         elif outcome.offer_upgrade:
             info, color = "Mais la mort te rend PLUS FORT...", COLOR_GOLD
         elif outcome.respawn == Respawn.BOSS_GATE:
-            info, color = "Tu reviens devant l'arène du Roi Zombie.", (255, 255, 255)
+            info, color = "Tu reviens devant l'arène du Roi des Glaces.", (255, 255, 255)
         else:
             info, color = "Retour au tout début de la map !", (255, 255, 255)
         self.lines.append(OutlinedText(info, cx, cy - 76, size=26, color=color))

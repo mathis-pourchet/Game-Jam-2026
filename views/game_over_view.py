@@ -23,7 +23,7 @@ class GameOverView(arcade.View):
         ]
         self.hint = OutlinedText("ENTRÉE : retenter l'aventure        ÉCHAP : menu", cx, 60, size=20, thickness=2)
         right, _ = game.player.textures["old2"]
-        self.finn = right[game.player.anims["dead"][0]]
+        self.finn = right[game.player.variant_anims["old2"]["dead"][0]]
         self.grave = assets.tileset("grave")
         self.bones = assets.tileset("bones")
 

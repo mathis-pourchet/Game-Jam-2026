@@ -11,13 +11,14 @@ from views.background import Background
 from views.ui import OutlinedText, panel
 
 HELP = (
-    "BUT : traverser les Plaines Bonbons et vaincre le Roi Zombie, en mourant le moins possible.\n\n"
+    "BUT : traverser les Plaines Bonbons et vaincre le Roi des Glaces, en mourant le moins possible.\n\n"
     "COMMANDES : Flèches / QD / AD pour bouger, ESPACE (ou Haut / Z / W) pour sauter, "
     "J / X / K pour l'épée, Haut / Bas sur une échelle, Bas + Saut pour traverser une plateforme, "
     "Échap pour la pause, M pour le son.\n\n"
     "MORT & RENAISSANCE : tué par un zombie normal ou un piège, tu reviens au début de la map. "
-    "Tué par un CHAMPION violet ou par le boss, tu renais plus fort et tu choisis une stat "
-    "(Saut, Vitesse, Force, Résistance). Mourir dans l'arène te ramène devant la grille.\n\n"
+    "Tué par un sorcier squelette (monstre niveau 2) ou par le boss, tu renais plus fort : tu choisis "
+    "une stat (Saut, Vitesse, Force, Résistance) et Finn se muscle (4 niveaux). "
+    "Mourir dans l'arène te ramène devant la grille.\n\n"
     "VIEILLISSEMENT : chaque mort fait vieillir Finn. Après 6 morts, il perd une stat à chaque mort. "
     "À 10 morts : GAME OVER, tout est réinitialisé !"
 )
@@ -47,13 +48,15 @@ class MenuView(arcade.View):
         self.help_hint = OutlinedText("ENTRÉE ou ÉCHAP pour revenir", cx, 60, size=16, thickness=2)
         meta = assets.meta("finn.json")
         cw, ch = meta["cell"]
-        right, _ = assets.frames("finn_normal.png", cw, ch, meta["count"])
-        self.finn_run = [right[i] for i in meta["anims"]["run"]]
+        info = meta["variants"]["muscle1"]
+        right, _ = assets.frames("finn_muscle1.png", cw, ch, info["count"])
+        self.finn_run = [right[i] for i in info["anims"]["run"]]
+        self.finn_size = (cw * 1.5, ch * 1.5)
         self.jake = assets.frames("jake.png", 30, 26, 4)[0]
-        zmeta = assets.meta("zombie.json")
-        zw, zh = zmeta["cells"]["normal"]
-        _, zleft = assets.frames("zombie_normal.png", zw, zh, zmeta["count"])
-        self.zombie = [zleft[i] for i in zmeta["anims"]["walk"]]
+        zombie = assets.meta("monsters.json")["zombie"]
+        self.zombie_size = zombie["cell"]
+        _, zleft = assets.frames(zombie["file"], *zombie["cell"], zombie["count"])
+        self.zombie = [zleft[i] for i in zombie["anims"]["walk"]]
         self.grass = assets.tileset("grass_mid")
         self.dirt = assets.tileset("dirt_mid")
 
@@ -133,9 +136,11 @@ class MenuView(arcade.View):
         self.best.draw()
         self.hint.draw()
         finn = self.finn_run[int(self.time * 12) % len(self.finn_run)]
-        arcade.draw_texture_rect(finn, arcade.XYWH(250, 64 + 30 * 1.5, 144, 96), pixelated=True)
+        fw, fh = self.finn_size
+        arcade.draw_texture_rect(finn, arcade.XYWH(250, 64 + fh / 2 - 3, fw, fh), pixelated=True)
         jake = self.jake[int(self.time * 6) % 2]
         arcade.draw_texture_rect(jake, arcade.XYWH(150, 64 + 26, 60, 52), pixelated=True)
         zx = SCREEN_WIDTH - ((self.time * 60) % (SCREEN_WIDTH + 200)) + 100
         zombie = self.zombie[int(self.time * 10) % len(self.zombie)]
-        arcade.draw_texture_rect(zombie, arcade.XYWH(zx, 64 + 30, 64, 64), pixelated=True)
+        zw, zh = self.zombie_size
+        arcade.draw_texture_rect(zombie, arcade.XYWH(zx, 64 + zh / 2 - 2, zw, zh))

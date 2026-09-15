@@ -26,7 +26,7 @@ class VictoryView(arcade.View):
         self.record = score.save_if_best(game.cfg["id"], self.total, deaths)
         cx = SCREEN_WIDTH / 2
         self.title = OutlinedText("VICTOIRE !", cx, SCREEN_HEIGHT - 110, color=COLOR_GOLD, size=78, thickness=6)
-        self.sub = OutlinedText("Le Roi Zombie Bonbon est vaincu. Ooo est sauvé !", cx, SCREEN_HEIGHT - 158, size=24)
+        self.sub = OutlinedText("Le Roi des Glaces est vaincu. Ooo est sauvé !", cx, SCREEN_HEIGHT - 158, size=24)
         minutes, seconds = divmod(int(score.elapsed), 60)
         stats = [
             ("Morts", f"{deaths} / {game.death_manager.max_deaths}"),
@@ -52,7 +52,7 @@ class VictoryView(arcade.View):
         self.hint = OutlinedText("ENTRÉE : menu        R : rejouer", cx, 40, size=18, thickness=2)
         variant = game.progression.visual_variant
         right, _ = game.player.textures[variant]
-        anims = game.player.anims
+        anims = game.player.variant_anims[variant]
         self.finn_frames = [right[i] for i in anims["jump"] + anims["idle"]]
         self.jake_frames = assets.frames("jake.png", 30, 26, 4)[1]
         self.confetti = [[random.uniform(0, SCREEN_WIDTH), random.uniform(SCREEN_HEIGHT, SCREEN_HEIGHT * 2),

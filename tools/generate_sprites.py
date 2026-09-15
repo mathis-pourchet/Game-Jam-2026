@@ -195,19 +195,11 @@ def build_ui():
     d.point((8, 8), fill=OUTLINE)
     save(outline(im), "sign.png")
 
-    # boule de gomme crachée par le boss
-    im = canvas(10, 10)
-    d = ImageDraw.Draw(im)
-    d.ellipse([0, 0, 9, 9], fill=(255, 110, 200, 255))
-    d.ellipse([1, 4, 8, 9], fill=(220, 70, 160, 255))
-    d.ellipse([2, 1, 5, 4], fill=(255, 220, 245, 255))
-    save(outline(im), "goo_ball.png")
-
     # onde de choc
     im = canvas(20, 12)
     d = ImageDraw.Draw(im)
-    d.ellipse([0, 2, 19, 20], outline=(255, 240, 180, 255), width=3)
-    d.ellipse([3, 5, 16, 20], outline=(255, 190, 90, 255), width=2)
+    d.ellipse([0, 2, 19, 20], outline=(235, 248, 255, 255), width=3)
+    d.ellipse([3, 5, 16, 20], outline=(140, 205, 255, 255), width=2)
     im = im.crop((0, 0, 20, 12))
     save(im, "shockwave.png")
 

@@ -121,7 +121,7 @@ class Npc:
 
 
 class Door:
-    """Porte de sortie : apparaît quand le Roi Zombie est vaincu."""
+    """Porte de sortie : apparaît quand le Roi des Glaces est vaincu."""
 
     def __init__(self, x, bottom):
         self.x, self.bottom = x, bottom
