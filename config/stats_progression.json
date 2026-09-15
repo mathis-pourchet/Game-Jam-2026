@@ -1,0 +1,49 @@
+{
+  "stats": {
+    "jump": {
+      "label": "Saut",
+      "base": 3.2,
+      "per_level": 0.55,
+      "max_level": 4,
+      "effect": "+0,55 case de hauteur de saut",
+      "color": [110, 230, 120]
+    },
+    "speed": {
+      "label": "Vitesse",
+      "base": 230,
+      "per_level": 32,
+      "max_level": 4,
+      "effect": "+14 % de vitesse de course",
+      "color": [255, 214, 60]
+    },
+    "force": {
+      "label": "Force",
+      "base": 1,
+      "per_level": 1,
+      "max_level": 4,
+      "effect": "+1 dégât et épée plus longue",
+      "color": [255, 110, 90]
+    },
+    "resistance": {
+      "label": "Résistance",
+      "base": 3,
+      "per_level": 1,
+      "max_level": 4,
+      "effect": "+1 cœur maximum",
+      "color": [255, 120, 190]
+    }
+  },
+  "choices_per_rebirth": 3,
+  "age": {
+    "start": 14,
+    "years_per_death": 6
+  },
+  "aging": {
+    "old_after_deaths": 6,
+    "very_old_after_deaths": 8,
+    "speed_multiplier": [1.0, 0.9, 0.8],
+    "jump_multiplier": [1.0, 0.93, 0.86],
+    "levels_lost_per_death": 1
+  },
+  "power_tiers": [0, 1, 3]
+}

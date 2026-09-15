@@ -1,0 +1,26 @@
+{
+  "levels": [
+    {
+      "id": 1,
+      "name": "Les Plaines Bonbons",
+      "subtitle": "et le Château du Roi Zombie",
+      "map": "assets/maps/level_1.txt",
+      "max_deaths": 10,
+      "par_time": 300,
+      "music": "music_level",
+      "boss_music": "music_boss",
+      "boss": {
+        "name": "Le Roi Zombie Bonbon",
+        "hp": 22
+      },
+      "tips": [
+        "Salut Finn ! Flèches ou Q/D pour bouger, ESPACE pour sauter. Garde ESPACE appuyé pour sauter plus haut !",
+        "J ou X : coup d'épée ! Tu peux aussi écraser les zombies en leur sautant sur la tête.",
+        "Les zombies violets sont des CHAMPIONS. S'ils te tuent, tu renais sur place... et PLUS FORT !",
+        "Mais chaque mort te fait vieillir. Après 6 morts tu perds tes forces, et à 10 morts TOUT recommence !",
+        "Un zombie normal ou un piège te renvoie au tout début. Les blocs fissurés se cassent à l'épée !",
+        "Le château du Roi Zombie est juste là. Si tu meurs dans l'arène, tu reviens devant la grille. Courage mon pote !"
+      ]
+    }
+  ]
+}
