@@ -51,9 +51,9 @@ class Hud:
 
         # --- morts et âge (haut centre) ---
         deaths, max_deaths = g.death_manager.deaths, g.death_manager.max_deaths
-        panel(SCREEN_WIDTH / 2 - 110, SCREEN_WIDTH / 2 + 110, top - 118, top - 12)
-        arcade.draw_texture_rect(self.skull, arcade.LBWH(SCREEN_WIDTH / 2 - 100, top - 50, 30, 27), pixelated=True)
-        arcade.draw_texture_rect(self.hourglass, arcade.LBWH(SCREEN_WIDTH / 2 - 96, top - 86, 21, 27), pixelated=True)
+        panel(SCREEN_WIDTH / 2 - 115, SCREEN_WIDTH / 2 + 115, top - 100, top - 12)
+        arcade.draw_texture_rect(self.skull, arcade.LBWH(SCREEN_WIDTH / 2 - 105, top - 50, 30, 27), pixelated=True)
+        arcade.draw_texture_rect(self.hourglass, arcade.LBWH(SCREEN_WIDTH / 2 - 101, top - 86, 21, 27), pixelated=True)
         danger = deaths >= max_deaths - 2
         self.t_deaths.text = f"Morts {deaths} / {max_deaths}"
         self.t_deaths.set_color((255, 110, 110) if danger else (255, 255, 255))
