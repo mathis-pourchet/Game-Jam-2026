@@ -1,0 +1,48 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- Environnements virtuels ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- PyCharm / JetBrains ----
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# ---- Tests & couverture ----
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Jeu : fichiers générés à l'exécution ----
+# Scores, sauvegardes, logs produits par le jeu
+*.log
+saves/
+scores.json
+highscores.json
+
+# ---- Assets lourds / temporaires (à décommenter si besoin) ----
+# Décommente si tu ne veux PAS versionner les gros médias
+# assets/sounds/*.wav
+# assets/sounds/*.mp3
+# Fichiers temporaires de Tiled
+*.tmx.autosave
+*.tsx.autosave
