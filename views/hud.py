@@ -37,7 +37,7 @@ class Hud:
         top = SCREEN_HEIGHT
 
         # --- cœurs et stats (haut gauche) ---
-        panel(12, 20 + max(prog.max_hp, 4) * 34 + 8, top - 124, top - 12)
+        panel(12, 40 + max(prog.max_hp, 4) * 34 + 8, top - 124, top - 12)
         for i in range(prog.max_hp):
             tex = self.heart_full if i < player.hp else self.heart_empty
             arcade.draw_texture_rect(tex, arcade.LBWH(22 + i * 34, top - 50, 30, 27), pixelated=True)
@@ -60,8 +60,8 @@ class Hud:
         self.t_age.text = f"Âge : {prog.age_years} ans"
         label, color = PHASES[prog.aging_stage]
         if prog.aging_stage == 0 and prog.power > 0:
-            label, color = (f"Muscles niveau {prog.muscle_level}", COLOR_GOLD)
-        self.t_phase.text = label
+            _, color = (f"Muscles niveau {prog.muscle_level}", COLOR_GOLD)
+        # self.t_phase.text = _
         self.t_phase.set_color(color)
         self.t_deaths.draw()
         self.t_age.draw()
