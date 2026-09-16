@@ -6,6 +6,7 @@ import arcade
 
 from settings import COLOR_GOLD, CONFIG, FONT_TITLE, KEYS_CONFIRM, KEYS_LEFT, KEYS_RIGHT, SCREEN_HEIGHT, SCREEN_WIDTH
 from systems.score_system import ScoreSystem
+from views import screen
 from views.background import Background
 from views.ui import OutlinedText, panel
 
@@ -24,6 +25,7 @@ class LevelSelectView(arcade.View):
         self.selected = 0
         self.levels = load_levels()
         self.background = Background()
+        self.camera = screen.make_camera()
         cx = SCREEN_WIDTH / 2
         self.title = OutlinedText("CHOISIS TON NIVEAU", cx, SCREEN_HEIGHT - 110, color=COLOR_GOLD, size=56,
                                   thickness=5)
@@ -50,6 +52,7 @@ class LevelSelectView(arcade.View):
             })
 
     def on_show_view(self):
+        screen.set_mouse(self.window, True)
         self.window.audio.play_music("music_menu")
 
     def on_update(self, delta_time):
@@ -86,18 +89,18 @@ class LevelSelectView(arcade.View):
         return None
 
     def on_mouse_motion(self, x, y, dx, dy):
-        index = self._card_at(x, y)
+        index = self._card_at(*screen.to_logical(self.camera, x, y))
         if index is not None:
             self.selected = index
 
     def on_mouse_press(self, x, y, button, modifiers):
-        index = self._card_at(x, y)
+        index = self._card_at(*screen.to_logical(self.camera, x, y))
         if index is not None:
             self.selected = index
             self.start()
 
     def on_draw(self):
-        self.clear()
+        screen.begin_frame(self, self.camera)
         self.background.draw(self.time * 50, SCREEN_HEIGHT / 2, self.time)
         self.title.draw()
         for i, card in enumerate(self.cards):

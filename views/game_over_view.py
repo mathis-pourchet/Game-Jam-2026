@@ -5,6 +5,7 @@ import arcade
 
 from entities import assets
 from settings import KEYS_CONFIRM, SCREEN_HEIGHT, SCREEN_WIDTH
+from views import screen
 from views.ui import OutlinedText
 
 
@@ -13,6 +14,7 @@ class GameOverView(arcade.View):
         super().__init__()
         self.game = game
         self.time = 0.0
+        self.camera = screen.make_camera()
         cx, cy = SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2
         deaths = game.death_manager.deaths
         self.texts = [
@@ -28,6 +30,7 @@ class GameOverView(arcade.View):
         self.bones = assets.tileset("bones")
 
     def on_show_view(self):
+        screen.set_mouse(self.window, True)
         self.game.audio.stop_music()
         self.game.audio.play("game_over")
 
@@ -45,7 +48,8 @@ class GameOverView(arcade.View):
             self.window.show_view(MenuView())
 
     def on_draw(self):
-        self.clear((22, 10, 34))
+        screen.begin_frame(self, self.camera)
+        arcade.draw_lrbt_rectangle_filled(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT, (22, 10, 34))
         cx, cy = SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2
         arcade.draw_lrbt_rectangle_filled(0, SCREEN_WIDTH, 0, cy - 150, (48, 28, 60))
         bob = math.sin(self.time * 2) * 3

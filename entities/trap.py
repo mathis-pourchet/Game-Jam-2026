@@ -108,7 +108,8 @@ class Npc:
         self.anim = random.random()
 
     def update(self, dt, player_x, player_y):
-        near = abs(player_x - self.x) < 3.2 * TILE and abs(player_y - self.bottom) < 3 * TILE
+        # portée large : la bulle est visible dès le début du niveau
+        near = abs(player_x - self.x) < 8 * TILE and abs(player_y - self.bottom) < 4 * TILE
         self.talking = near
         self.anim += dt
         if self.kind == "jake":

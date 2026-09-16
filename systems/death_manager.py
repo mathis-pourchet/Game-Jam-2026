@@ -1,10 +1,11 @@
 """Gestion des morts : compteur, tombes, point de réapparition.
 
 Règles :
-- mort « normale » (zombie normal, piège, chute) hors zone de boss : retour au
-  début de la map, qui est réinitialisée ;
-- mort face à un champion : Finn renaît sur place, plus fort ;
-- mort dans la zone du boss : Finn réapparaît devant la grille de l'arène ;
+- hors de l'arène, Finn renaît quelques cases avant le lieu de sa mort, et la map
+  n'est pas réinitialisée ;
+- dans l'arène du boss, il réapparaît devant la grille et le boss repart à zéro ;
+- la mort est « spéciale » (renaissance plus fort) si un champion ou le boss l'a tué,
+  ou l'avait touché juste avant (voir SPECIAL_DEATH_WINDOW dans settings.py) ;
 - au-delà du nombre de morts autorisé : game over, tout est réinitialisé.
 """
 from dataclasses import dataclass
@@ -17,9 +18,8 @@ class DeathCause:
 
 
 class Respawn:
-    START = "start"
-    HERE = "here"
-    BOSS_GATE = "boss_gate"
+    HERE = "here"              # quelques cases avant le lieu de la mort
+    BOSS_GATE = "boss_gate"    # devant la grille de l'arène
 
 
 @dataclass
@@ -62,12 +62,7 @@ class DeathManager:
         prog.register_death()
         self.graves.append((position[0], position[1], prog.deaths))
 
-        if in_boss_zone:
-            respawn = Respawn.BOSS_GATE
-        elif cause == DeathCause.CHAMPION:
-            respawn = Respawn.HERE
-        else:
-            respawn = Respawn.START
+        respawn = Respawn.BOSS_GATE if in_boss_zone else Respawn.HERE
         outcome = DeathOutcome(cause=cause, deaths=prog.deaths, max_deaths=self.max_deaths,
                                respawn=respawn, aging_stage=prog.aging_stage,
                                became_older=prog.aging_stage > stage_before)

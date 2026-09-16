@@ -7,6 +7,7 @@ import arcade
 from entities import assets
 from settings import COLOR_GOLD, KEYS_CONFIRM, SCREEN_HEIGHT, SCREEN_WIDTH
 from systems.score_system import ScoreSystem
+from views import screen
 from views.background import Background
 from views.ui import OutlinedText, panel
 
@@ -19,6 +20,7 @@ class VictoryView(arcade.View):
         self.game = game
         self.time = 0.0
         self.background = Background()
+        self.camera = screen.make_camera()
         deaths = game.death_manager.deaths
         score = game.score
         self.total = score.final_score(deaths)
@@ -61,6 +63,7 @@ class VictoryView(arcade.View):
                          for _ in range(90)]
 
     def on_show_view(self):
+        screen.set_mouse(self.window, True)
         self.game.audio.stop_music()
 
     def on_update(self, delta_time):
@@ -85,7 +88,7 @@ class VictoryView(arcade.View):
             self.window.show_view(self.game)
 
     def on_draw(self):
-        self.clear()
+        screen.begin_frame(self, self.camera)
         self.background.draw(self.time * 60, SCREEN_HEIGHT / 2, self.time)
         panel(SCREEN_WIDTH / 2 - 360, SCREEN_WIDTH / 2 + 40, 90, SCREEN_HEIGHT - 196, fill=(30, 22, 48, 200))
         self.title.draw()

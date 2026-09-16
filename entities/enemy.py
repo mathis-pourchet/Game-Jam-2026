@@ -103,7 +103,11 @@ class Enemy:
         if self.dead:
             self.dying += dt
             self.anim_time += dt
-            if self.dying > self.death_duration():
+            b = self.body                 # le cadavre retombe au sol au lieu de flotter
+            b.vx = 0
+            b.vy = max(-MAX_FALL_SPEED, b.vy - GRAVITY * dt)
+            move_body(b, level.grid, dt, oneway=self.uses_platforms)
+            if self.dying > self.death_duration() or b.top < 0:
                 self.removed = True
             self.update_sprite()
             return
@@ -172,6 +176,7 @@ class Enemy:
         self.dying = 0.0
         self.anim_time = 0.0
         self.body.vx = 0
+        self.body.vy = min(self.body.vy, 0.0)
         events.append(("enemy_dead", self))
 
     def death_duration(self):

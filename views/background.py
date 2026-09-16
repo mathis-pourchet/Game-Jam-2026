@@ -1,4 +1,8 @@
-"""Décor en parallaxe : ciel, montagnes et château lointains, nuages, collines."""
+"""Décor en parallaxe : ciel, montagnes et château lointains, nuages, collines.
+
+Dessiné en appels directs, volontairement : regroupé dans une SpriteList (views/batch.py), ce décor
+fait de très grands quadrilatères coûtait 1,5 ms de plus par image (mesuré en boucle réelle).
+"""
 import random
 
 import arcade

@@ -16,7 +16,11 @@
         "hp": 220
       },
       "tips": [
-        "Salut Finn ! Flèches ou Q/D pour bouger, ESPACE pour sauter (garde ESPACE appuyé pour sauter plus haut). J ou X : coup d'épée ! Tu peux aussi leur sauter sur la tête."
+        [
+          {"keys": [["Q", "D"], ["LEFT", "RIGHT"]], "action": "Bouger"},
+          {"keys": [["ESPACE"]], "action": "Sauter"},
+          {"keys": [["J"]], "action": "Épée"}
+        ]
       ]
     },
     {

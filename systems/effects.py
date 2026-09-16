@@ -1,15 +1,19 @@
-"""Particules, textes flottants et tremblement d'écran."""
+"""Particules et tremblement d'écran.
+
+Les particules sont recyclées : une particule morte est cachée et remise en réserve au lieu
+d'être détruite, puis réutilisée par la prochaine émission. Créer et retirer un sprite à
+chaque étincelle (des centaines par seconde quand Finn est très fort) coûtait cher.
+"""
 import math
 import random
 
 import arcade
 
 from entities import assets
-from settings import COLOR_OUTLINE, FONT_TITLE
 
 
 class Particle:
-    __slots__ = ("sprite", "vx", "vy", "life", "max_life", "gravity", "drag", "base_scale")
+    __slots__ = ("sprite", "pool", "x", "y", "vx", "vy", "life", "max_life", "gravity", "drag")
 
 
 class Effects:
@@ -17,31 +21,44 @@ class Effects:
         self.ctx = ctx
         self.normal = arcade.SpriteList()
         self.glow = arcade.SpriteList()
+        self.free_normal = []
+        self.free_glow = []
         self.particles = []
-        self.texts = []
         self.shake_time = 0.0
         self.shake_amount = 0.0
 
     def clear(self):
         for p in self.particles:
-            p.sprite.remove_from_sprite_lists()
+            p.sprite.visible = False
+            p.pool.append(p)
         self.particles = []
-        self.texts = []
 
     def emit(self, x, y, color, count=10, speed=(80, 260), angle=(0, 360), life=(0.3, 0.7),
              gravity=900, size=(2.0, 4.0), glow=False, texture=None, drag=0.0):
         tex = texture or assets.texture("spark.png")
-        target = self.glow if glow else self.normal
+        target, pool = (self.glow, self.free_glow) if glow else (self.normal, self.free_normal)
+        color = (color[0], color[1], color[2], 255)
         for _ in range(count):
+            if pool:
+                p = pool.pop()
+                s = p.sprite
+                if s.texture is not tex:
+                    s.texture = tex
+                s.visible = True
+            else:
+                p = Particle()
+                s = p.sprite = arcade.Sprite(tex)
+                p.pool = pool
+                target.append(s)
             a = math.radians(random.uniform(*angle))
             v = random.uniform(*speed)
-            s = arcade.Sprite(tex, scale=random.uniform(*size), center_x=x, center_y=y)
+            s.scale = random.uniform(*size)
             s.color = color
-            p = Particle()
-            p.sprite, p.vx, p.vy = s, math.cos(a) * v, math.sin(a) * v
+            s.position = (x, y)
+            p.x, p.y = x, y
+            p.vx, p.vy = math.cos(a) * v, math.sin(a) * v
             p.life = p.max_life = random.uniform(*life)
-            p.gravity, p.drag, p.base_scale = gravity, drag, s.scale_x
-            target.append(s)
+            p.gravity, p.drag = gravity, drag
             self.particles.append(p)
 
     def dust(self, x, y):
@@ -57,11 +74,6 @@ class Effects:
         self.emit(x, y, (255, 255, 255), 1, speed=(420, 420), angle=(90, 90), life=(0.45, 0.45),
                   gravity=1400, size=(0.8, 0.8), texture=assets.tileset("coin"))
 
-    def float_text(self, x, y, text, color=(255, 255, 255), size=16):
-        shadow = arcade.Text(text, x + 2, y - 2, COLOR_OUTLINE, size, anchor_x="center", font_name=FONT_TITLE)
-        main = arcade.Text(text, x, y, color, size, anchor_x="center", font_name=FONT_TITLE)
-        self.texts.append([shadow, main, 1.1, color])
-
     def shake(self, amount, duration):
         self.shake_amount = max(self.shake_amount, amount)
         self.shake_time = max(self.shake_time, duration)
@@ -76,28 +88,21 @@ class Effects:
         alive = []
         for p in self.particles:
             p.life -= dt
+            s = p.sprite
             if p.life <= 0:
-                p.sprite.remove_from_sprite_lists()
+                s.visible = False
+                p.pool.append(p)
                 continue
             p.vy -= p.gravity * dt
             if p.drag:
                 p.vx *= 1 - p.drag * dt
                 p.vy *= 1 - p.drag * dt
-            s = p.sprite
-            s.center_x += p.vx * dt
-            s.center_y += p.vy * dt
-            ratio = p.life / p.max_life
-            s.alpha = int(255 * min(1.0, ratio * 1.6))
+            p.x += p.vx * dt
+            p.y += p.vy * dt
+            s.position = (p.x, p.y)
+            s.alpha = int(255 * min(1.0, p.life / p.max_life * 1.6))
             alive.append(p)
         self.particles = alive
-        for entry in self.texts:
-            entry[2] -= dt
-            for t in entry[:2]:
-                t.y += 45 * dt
-            alpha = int(255 * max(0.0, min(1.0, entry[2] / 0.4)))
-            entry[0].color = COLOR_OUTLINE + (alpha,)
-            entry[1].color = tuple(entry[3][:3]) + (alpha,)
-        self.texts = [e for e in self.texts if e[2] > 0]
         if self.shake_time > 0:
             self.shake_time -= dt
             if self.shake_time <= 0:
@@ -106,6 +111,3 @@ class Effects:
     def draw(self):
         self.normal.draw(pixelated=True)
         self.glow.draw(blend_function=(self.ctx.SRC_ALPHA, self.ctx.ONE))
-        for shadow, main, _, _ in self.texts:
-            shadow.draw()
-            main.draw()

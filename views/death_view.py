@@ -1,15 +1,17 @@
-"""Écran « Tu es mort ! » : compteur, âge, vieillissement, puis renaissance."""
+"""Après la mort, un seul message : « + 6 ans ».
+
+Une mort normale reste dans le noir ; une mort spéciale reste dans la lumière dorée de sa
+transition (voir views/death_fx.py), puis mène au choix du pouvoir.
+"""
 import arcade
 
 from settings import COLOR_GOLD, KEYS_CONFIRM, SCREEN_HEIGHT, SCREEN_WIDTH
-from systems.death_manager import DeathCause, Respawn
+from views import screen
+from views.death_fx import LIGHT, draw_rays
 from views.ui import OutlinedText
 
-CAUSES = {
-    DeathCause.NORMAL: "La route reprend ce qu'elle t'avait prêté...",
-    DeathCause.CHAMPION: "Il t'a vaincu. Il te laisse quelque chose.",
-    DeathCause.BOSS: "Le maître des lieux a eu le dernier mot...",
-}
+AUTO_CONTINUE = 1.9     # s avant de continuer tout seul
+SKIP_AFTER = 0.5        # s avant qu'une touche puisse passer l'écran
 
 
 class DeathCardView(arcade.View):
@@ -17,52 +19,30 @@ class DeathCardView(arcade.View):
         super().__init__()
         self.game = game
         self.outcome = outcome
+        self.special = outcome.offer_upgrade
         self.time = 0.0
-        prog = game.progression
-        cx, cy = SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2
-        self.lines = [
-            OutlinedText("TU ES MORT !", cx, cy + 150, color=(255, 90, 110), size=72, thickness=5),
-            OutlinedText(CAUSES.get(outcome.cause, ""), cx, cy + 92, size=24),
-            OutlinedText(f"Finn a maintenant {prog.age_years} ans", cx, cy + 20, size=34, color=(200, 220, 255)),
-        ]
-        if outcome.game_over:
-            info, color = "Le sable est passé. Tout est à refaire.", (255, 90, 90)
-        elif outcome.stat_lost:
-            label = prog.stats_cfg[outcome.stat_lost]["label"]
-            info, color = f"Les années te prennent 1 niveau de {label}...", (255, 170, 110)
-        elif outcome.aging_stage > 0:
-            info, color = "Finn vieillit... ses forces l'abandonnent.", (255, 170, 110)
-        elif outcome.offer_upgrade:
-            info, color = "Mais la mort te rend PLUS FORT...", COLOR_GOLD
-        elif outcome.respawn == Respawn.BOSS_GATE:
-            info, color = "Tu reviens devant la grille.", (255, 255, 255)
-        else:
-            info, color = "Retour au tout début de la map !", (255, 255, 255)
-        self.lines.append(OutlinedText(info, cx, cy - 56, size=26, color=color))
-        left = outcome.max_deaths - outcome.deaths
-        if not outcome.game_over:
-            warn = "Le sable est presque écoulé..." if left <= 2 else "Le sable continue de couler."
-            if outcome.became_older and outcome.aging_stage == 1:
-                warn = "Finn devient VIEUX : chaque mort lui coûtera désormais une force"
-            self.lines.append(OutlinedText(warn, cx, cy - 100, size=18, thickness=2,
-                                           color=(255, 120, 120) if left <= 2 else (230, 230, 240)))
-        self.hint = OutlinedText("Appuie sur ENTRÉE", cx, 70, size=18, thickness=2)
+        self.camera = screen.make_camera()
+        years = game.progression.age_cfg["years_per_death"]
+        color = COLOR_GOLD if self.special else (215, 215, 225)
+        self.text = OutlinedText(f"+ {years} ans", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 40, color=color, size=130,
+                                 thickness=8)
 
     def on_show_view(self):
+        screen.set_mouse(self.window, False)
         if self.outcome.aging_stage > 0 and not self.outcome.game_over:
             self.game.audio.play("aging")
 
     def on_update(self, delta_time):
         self.time += delta_time
-        if self.time > 5.0:
+        if self.time > AUTO_CONTINUE:
             self.proceed()
 
     def on_key_press(self, key, modifiers):
-        if self.time > 0.7 and key in KEYS_CONFIRM | {arcade.key.J, arcade.key.X}:
+        if self.time > SKIP_AFTER and key in KEYS_CONFIRM | {arcade.key.J, arcade.key.X}:
             self.proceed()
 
     def on_mouse_press(self, x, y, button, modifiers):
-        if self.time > 0.7:
+        if self.time > SKIP_AFTER:
             self.proceed()
 
     def proceed(self):
@@ -79,13 +59,12 @@ class DeathCardView(arcade.View):
             self.window.show_view(self.game)
 
     def on_draw(self):
-        self.game.on_draw()
-        alpha = min(200, int(self.time * 500))
-        arcade.draw_lrbt_rectangle_filled(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT, (25, 0, 20, alpha))
-        for i, line in enumerate(self.lines):
-            appear = min(1.0, max(0.0, (self.time - i * 0.15) * 4))
-            if appear > 0:
-                line.set_alpha(255 * appear)
-                line.draw()
-        if self.time > 0.7 and int(self.time * 2) % 2 == 0:
-            self.hint.draw()
+        screen.begin_frame(self, self.camera)
+        w, h = SCREEN_WIDTH, SCREEN_HEIGHT
+        if self.special:
+            arcade.draw_lrbt_rectangle_filled(0, w, 0, h, LIGHT)
+            draw_rays(w / 2, h / 2, self.time * 0.6, 120)
+        appear = min(1.0, self.time / 0.25)
+        self.text.set_position(w / 2, h / 2 - 40 + (1 - appear) ** 2 * 60)    # le texte tombe en place
+        self.text.set_alpha(255 * appear)
+        self.text.draw()

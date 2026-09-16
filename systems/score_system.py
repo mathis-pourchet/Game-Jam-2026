@@ -29,10 +29,6 @@ class ScoreSystem:
         self.elapsed = 0.0
         self.boss_defeated = False
 
-    def reset_attempt(self):
-        """Une mort « normale » remet la map à zéro : on perd les pièces de la tentative."""
-        self.coins = 0
-
     def tick(self, dt):
         self.elapsed += dt
 

@@ -7,6 +7,7 @@ from entities import assets
 from settings import (COLOR_GOLD, COLOR_PINK, FONT_TITLE, KEYS_CONFIRM, KEYS_DOWN, KEYS_UP, SCREEN_HEIGHT,
                       SCREEN_WIDTH, TILE)
 from systems.score_system import ScoreSystem
+from views import screen
 from views.background import Background
 from views.ui import OutlinedText, panel
 
@@ -31,6 +32,7 @@ class MenuView(arcade.View):
         self.selected = 0
         self.show_help = False
         self.background = Background()
+        self.camera = screen.make_camera()
         cx = SCREEN_WIDTH / 2
         self.title = OutlinedText("THE FINNING", cx, SCREEN_HEIGHT - 170, color=COLOR_GOLD, size=96, thickness=7)
         self.subtitle = OutlinedText("Meurs. Renais. Deviens légendaire.", cx, SCREEN_HEIGHT - 222,
@@ -59,6 +61,7 @@ class MenuView(arcade.View):
         self.dirt = assets.tileset("dirt_mid")
 
     def on_show_view(self):
+        screen.set_mouse(self.window, True)
         self.window.audio.play_music("music_menu")
 
     def on_update(self, delta_time):
@@ -95,6 +98,7 @@ class MenuView(arcade.View):
             arcade.exit()
 
     def on_mouse_motion(self, x, y, dx, dy):
+        x, y = screen.to_logical(self.camera, x, y)
         for i, option in enumerate(self.options):
             if abs(y - option.main.y - 14) < 26 and abs(x - SCREEN_WIDTH / 2) < 180:
                 self.selected = i
@@ -103,13 +107,14 @@ class MenuView(arcade.View):
         if self.show_help:
             self.show_help = False
             return
+        x, y = screen.to_logical(self.camera, x, y)
         for i, option in enumerate(self.options):
             if abs(y - option.main.y - 14) < 26 and abs(x - SCREEN_WIDTH / 2) < 180:
                 self.selected = i
                 self.activate()
 
     def on_draw(self):
-        self.clear()
+        screen.begin_frame(self, self.camera)
         self.background.draw(self.time * 70, SCREEN_HEIGHT / 2, self.time)
         offset = -(self.time * 70) % TILE
         for i in range(-1, SCREEN_WIDTH // TILE + 2):
