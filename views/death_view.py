@@ -6,9 +6,9 @@ from systems.death_manager import DeathCause, Respawn
 from views.ui import OutlinedText
 
 CAUSES = {
-    DeathCause.NORMAL: "Terrassé par un zombie ou un piège...",
-    DeathCause.CHAMPION: "Vaincu par un sorcier squelette (CHAMPION) !",
-    DeathCause.BOSS: "Gelé par le Roi des Glaces !",
+    DeathCause.NORMAL: "La route reprend ce qu'elle t'avait prêté...",
+    DeathCause.CHAMPION: "Il t'a vaincu. Il te laisse quelque chose.",
+    DeathCause.BOSS: "Le maître des lieux a eu le dernier mot...",
 }
 
 
@@ -23,29 +23,28 @@ class DeathCardView(arcade.View):
         self.lines = [
             OutlinedText("TU ES MORT !", cx, cy + 150, color=(255, 90, 110), size=72, thickness=5),
             OutlinedText(CAUSES.get(outcome.cause, ""), cx, cy + 92, size=24),
-            OutlinedText(f"Morts : {outcome.deaths} / {outcome.max_deaths}", cx, cy + 30, size=34),
-            OutlinedText(f"Finn a maintenant {prog.age_years} ans", cx, cy - 16, size=24, color=(200, 220, 255)),
+            OutlinedText(f"Finn a maintenant {prog.age_years} ans", cx, cy + 20, size=34, color=(200, 220, 255)),
         ]
         if outcome.game_over:
-            info, color = "Trop de morts... toutes tes forces sont perdues !", (255, 90, 90)
+            info, color = "Le sable est passé. Tout est à refaire.", (255, 90, 90)
         elif outcome.stat_lost:
             label = prog.stats_cfg[outcome.stat_lost]["label"]
-            info, color = f"Le temps passe... tu perds 1 niveau de {label} !", (255, 170, 110)
+            info, color = f"Les années te prennent 1 niveau de {label}...", (255, 170, 110)
         elif outcome.aging_stage > 0:
             info, color = "Finn vieillit... ses forces l'abandonnent.", (255, 170, 110)
         elif outcome.offer_upgrade:
             info, color = "Mais la mort te rend PLUS FORT...", COLOR_GOLD
         elif outcome.respawn == Respawn.BOSS_GATE:
-            info, color = "Tu reviens devant l'arène du Roi des Glaces.", (255, 255, 255)
+            info, color = "Tu reviens devant la grille.", (255, 255, 255)
         else:
             info, color = "Retour au tout début de la map !", (255, 255, 255)
-        self.lines.append(OutlinedText(info, cx, cy - 76, size=26, color=color))
+        self.lines.append(OutlinedText(info, cx, cy - 56, size=26, color=color))
         left = outcome.max_deaths - outcome.deaths
         if not outcome.game_over:
-            warn = "DERNIÈRE CHANCE !" if left == 1 else f"Encore {left} morts avant de tout perdre"
+            warn = "Le sable est presque écoulé..." if left <= 2 else "Le sable continue de couler."
             if outcome.became_older and outcome.aging_stage == 1:
-                warn = "Finn devient VIEUX : chaque mort lui coûtera une stat"
-            self.lines.append(OutlinedText(warn, cx, cy - 120, size=18, thickness=2,
+                warn = "Finn devient VIEUX : chaque mort lui coûtera désormais une force"
+            self.lines.append(OutlinedText(warn, cx, cy - 100, size=18, thickness=2,
                                            color=(255, 120, 120) if left <= 2 else (230, 230, 240)))
         self.hint = OutlinedText("Appuie sur ENTRÉE", cx, 70, size=18, thickness=2)
 

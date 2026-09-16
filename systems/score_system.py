@@ -3,7 +3,7 @@ import json
 
 from settings import SAVES
 
-KILL_POINTS = {"zombie": 100, "jumper": 150, "champion": 500, "boss": 3000}
+KILL_POINTS = {"zombie": 100, "jumper": 150, "champion": 500, "king": 700, "boss": 3000}
 RANKS = [
     (0, "S", "Héros légendaire"),
     (2, "A", "Grand aventurier"),

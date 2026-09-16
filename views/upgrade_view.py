@@ -57,15 +57,9 @@ class UpgradeView(arcade.View):
             return
         stat = self.choices[index]
         prog = self.game.progression
-        muscles_before = prog.muscle_level
         prog.upgrade(stat)
         self.game.audio.play("select")
         self.game.respawn(self.outcome)
-        info = prog.describe(stat)
-        sub = info["effect"]
-        if prog.muscle_level > muscles_before and not prog.is_aging:
-            sub = f"Finn se muscle : niveau {prog.muscle_level} !"
-        self.game.show_toast(f"+1 {info['label']} !", sub, 2.6)
         self.window.show_view(self.game)
 
     def on_key_press(self, key, modifiers):

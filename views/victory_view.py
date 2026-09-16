@@ -29,7 +29,7 @@ class VictoryView(arcade.View):
         self.sub = OutlinedText("Le Roi des Glaces est vaincu. Ooo est sauvé !", cx, SCREEN_HEIGHT - 158, size=24)
         minutes, seconds = divmod(int(score.elapsed), 60)
         stats = [
-            ("Morts", f"{deaths} / {game.death_manager.max_deaths}"),
+            ("Morts", str(deaths)),
             ("Âge final de Finn", f"{game.progression.age_years} ans"),
             ("Temps", f"{minutes:02d}:{seconds:02d}"),
             ("Pièces", str(score.coins)),

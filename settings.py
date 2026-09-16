@@ -1,4 +1,4 @@
-"""Constantes globales du jeu « Finn sans Fin »."""
+"""Constantes globales du jeu « The Finning »."""
 from pathlib import Path
 
 import arcade
@@ -13,7 +13,7 @@ SAVES = ROOT / "saves"
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-SCREEN_TITLE = "Finn sans Fin"
+SCREEN_TITLE = "The Finning"
 
 TILE = 32
 

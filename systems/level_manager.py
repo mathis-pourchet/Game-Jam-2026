@@ -16,7 +16,9 @@ Légende
   P  départ de Finn   J  Jake (conseil)   !  panneau (conseil)
   z  zombie (monstre niveau 1)   j  zombie qui bondit (niveau 1)
   Z  sorcier squelette (monstre niveau 2, champion : tue = renaissance plus fort)
-  K  Roi des Glaces (boss final)   w  scie horizontale   y  scie verticale
+  Q  roi orange (monstre niveau 3, champion lui aussi, plus coriace)
+  K  boss final du niveau (la classe dépend de "boss"."kind" dans config/levels.json)
+  w  scie horizontale   y  scie verticale
   |  grille de l'arène (se ferme derrière Finn)   r  réapparition devant l'arène
   D  porte de sortie (apparaît quand le boss est vaincu)   F  drapeau
   T  arbre   f fleur   m champignon   n gros champignon   c cristal
@@ -41,7 +43,7 @@ HAZARDS = {"^": "spikes_up", "v": "spikes_down", "t": "thorns", "~": "goo"}
 DECO = {"f": "flower", "m": "mushroom_sm", "n": "mushroom_lg", "c": "crystal", "g": "grave",
         "b": "bones", "*": "torch", ",": "grass_tuft"}
 ENTITIES = {"P": "player", "J": "jake", "!": "sign", "z": "zombie", "j": "jumper", "Z": "champion",
-            "K": "boss", "o": "coin", "h": "heart", "S": "spring", "w": "saw_h", "y": "saw_v",
+            "Q": "king", "K": "boss", "o": "coin", "h": "heart", "S": "spring", "w": "saw_h", "y": "saw_v",
             "r": "boss_respawn", "D": "door", "F": "flag"}
 
 # Zones dangereuses dans une tuile (gauche, bas, droite, haut) en pixels relatifs
