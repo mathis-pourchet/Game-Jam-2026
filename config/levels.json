@@ -27,7 +27,7 @@
       "id": 2,
       "name": "Les Cimes de Sucre",
       "subtitle": "et le salon du Majordome",
-      "hint": "Plus court, mais bien plus technique : sauts précis, verglas et vide.",
+      "hint": "Plus court mais plus technique : sauts précis, verglas et  vide.",
       "map": "assets/maps/level_2.txt",
       "max_deaths": 10,
       "par_time": 240,
