@@ -70,7 +70,6 @@ Le jeu est volontairement muet pendant l'action : pas de message, pas de dégât
 | Physique, commandes, taille d'écran, titre de la fenêtre | `settings.py` |
 | PV et dégâts des monstres / des pièges | `entities/enemy.py`, `entities/trap.py`, `HAZARD_DAMAGE` dans `systems/level_manager.py` |
 | Découpe des planches (Finn, monstres, boss) | `tools/extract_sprites.py` puis relancer le script |
-| Le tileset 32x32 | `tools/generate_tileset.py` |
 | Jake, décors en parallaxe, icônes | `tools/generate_sprites.py` |
 | Bruitages et musiques | `tools/generate_sounds.py` |
 
@@ -92,6 +91,7 @@ tools/                    scripts de génération des assets
 ## Crédits
 
 - Planches de Finn, des monstres et des boss (`assets/finn`, `assets/monstre-niveau-1/2/3`, `assets/Boss-final`, `assets/boos-final-2`) : fournies par l'équipe. Fan art Adventure Time (Cartoon Network), pour un usage non commercial de game jam.
-- Tileset et décors : générés par `tools/generate_tileset.py` et `tools/generate_sprites.py`.
+- Tileset `ooo32` (`assets/tilesets/`) : fourni par l'équipe.
+- Décors en parallaxe (ciel, montagnes, collines, nuages) : générés par `tools/generate_sprites.py`.
 - Polices : Luckiest Guy (Apache 2.0) et Press Start 2P (OFL). Les licences sont dans `assets/fonts/`.
 - Sons et musiques : générés par `tools/generate_sounds.py`.
