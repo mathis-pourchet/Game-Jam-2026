@@ -392,11 +392,11 @@ class GameView(arcade.View):
         box = p.attack_box()
         if box:
             for e in self.enemies:
-                if e.dead or id(e) in p.hit_ids:
+                if e.dead or e in p.hit_ids:
                     continue
                 er = e.contact_box()
                 if rects_overlap(box, er) and e.take_hit(prog.damage, b.center_x, events):
-                    p.hit_ids.add(id(e))
+                    p.hit_ids.add(e)
                     self.effects.hit((max(box[0], er[0]) + min(box[2], er[2])) / 2, b.center_y + 8)
                     self.effects.shake(3, 0.08)
             for pr in self.projectiles:
