@@ -19,7 +19,7 @@
         [
           {"keys": [["Q", "D"], ["LEFT", "RIGHT"]], "action": "Bouger"},
           {"keys": [["ESPACE"]], "action": "Sauter"},
-          {"keys": [["J"]], "action": "Épée"}
+          {"keys": [["J"], "X"], "action": "Épée"}
         ]
       ]
     },
