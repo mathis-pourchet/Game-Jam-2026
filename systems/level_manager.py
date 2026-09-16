@@ -53,6 +53,13 @@ HAZARD_BOXES = {
     "goo_body": (0, 0, 32, 32),
 }
 
+# Dégâts infligés par chaque piège de la map (le goo tue directement)
+HAZARD_DAMAGE = {
+    "spikes_up": 25,
+    "spikes_down": 25,
+    "thorns": 15,
+}
+
 
 @dataclass
 class Spawn:

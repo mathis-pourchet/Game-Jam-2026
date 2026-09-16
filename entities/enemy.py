@@ -28,15 +28,16 @@ class Enemy:
     art = "zombie"
     score_kind = "zombie"
     w, h = 30, 48
-    max_hp = 1
+    max_hp = 10
     speed = 42
     chase_speed = 88
     sight = 7 * TILE
-    damage = 1
+    damage = 20             # dégâts au contact
     cause = DeathCause.NORMAL
     knockback = 1.0
     stomp_kills = True
     uses_platforms = True   # peut se poser sur les plateformes traversables
+    health_bar = True       # barre de vie au-dessus de la tête (le boss a la sienne dans le HUD)
 
     def __init__(self, x, bottom):
         self.home = (x, bottom)
@@ -49,6 +50,7 @@ class Enemy:
         self.body.place_center_bottom(*self.home)
         self.body.vx = self.body.vy = 0
         self.hp = self.max_hp
+        self.hp_shown = float(self.max_hp)   # valeur affichée, rattrape hp en douceur
         self.facing = -1
         self.dead = False
         self.removed = False
@@ -79,6 +81,7 @@ class Enemy:
         return []
 
     def update(self, dt, level, player, events):
+        self.hp_shown = max(float(max(self.hp, 0)), self.hp_shown - self.max_hp * 1.2 * dt)
         if self.dead:
             self.dying += dt
             self.anim_time += dt
@@ -184,7 +187,8 @@ class Enemy:
 class Jumper(Enemy):
     """Zombie (niveau 1) qui avance par grands bonds vers Finn."""
     score_kind = "jumper"
-    max_hp = 2
+    max_hp = 20
+    damage = 25
 
     def reset_extra(self):
         self.hop_timer = random.uniform(0.6, 1.4)
@@ -220,14 +224,16 @@ class Champion(Enemy):
     art = "lich"
     score_kind = "champion"
     w, h = 40, 70
-    max_hp = 5
+    max_hp = 50
     speed = 45
     chase_speed = 100
     sight = 10 * TILE
+    damage = 25
     cause = DeathCause.CHAMPION
     knockback = 0.3
     stomp_kills = False
-    SWIPE_DAMAGE = 2
+    SWIPE_DAMAGE = 35
+    FIREBALL_DAMAGE = 25
 
     def reset_extra(self):
         self.cast_cd = random.uniform(1.0, 2.0)
@@ -249,7 +255,7 @@ class Champion(Enemy):
                 self.state, self.state_time = "cast_release", 0.45
                 x = b.center_x + self.facing * (b.w / 2 + 18)
                 y = b.y + b.h * 0.6
-                events.append(("projectile", Projectile("proj_fireball.png", x, y, self.facing * 290, 0, 1,
+                events.append(("projectile", Projectile("proj_fireball.png", x, y, self.facing * 290, 0, self.FIREBALL_DAMAGE,
                                                         DeathCause.CHAMPION, life=3.5, radius=13,
                                                         color=(120, 255, 170), owner=self)))
                 events.append(("sound", "spit", 0.9))
@@ -320,10 +326,14 @@ class Boss(Enemy):
     score_kind = "boss"
     w, h = 92, 150
     speed = 95
+    damage = 30
     cause = DeathCause.BOSS
     knockback = 0.0
     stomp_kills = False
     uses_platforms = False  # retombe toujours au sol (ses ondes de glace courent par terre)
+    health_bar = False
+    SHARD_DAMAGE = 20
+    ICICLE_DAMAGE = 30
 
     def __init__(self, x, bottom, hp):
         self.max_hp = hp
@@ -422,7 +432,7 @@ class Boss(Enemy):
                 for spread in spreads:
                     angle = aim + spread
                     events.append(("projectile", Projectile("proj_ice.png", sx, sy, math.cos(angle) * 430,
-                                                            math.sin(angle) * 430, 1, DeathCause.BOSS, life=3.0,
+                                                            math.sin(angle) * 430, self.SHARD_DAMAGE, DeathCause.BOSS, life=3.0,
                                                             radius=14, orient=True, color=(200, 240, 255),
                                                             owner=self)))
                 events.append(("sound", "spit", 1.0))
@@ -434,7 +444,7 @@ class Boss(Enemy):
                 top = min(22 * TILE - 24, player.body.top + 360)
                 for i in range(count):
                     x = player.body.center_x + (i - (count - 1) / 2) * 72 + random.uniform(-14, 14)
-                    events.append(("projectile", Projectile("proj_ice.png", x, top, 0, -1, 1, DeathCause.BOSS,
+                    events.append(("projectile", Projectile("proj_ice.png", x, top, 0, -1, self.ICICLE_DAMAGE, DeathCause.BOSS,
                                                             gravity=1400, delay=0.55 + abs(i - count // 2) * 0.08,
                                                             life=4.0, radius=12, orient=True,
                                                             color=(200, 240, 255), owner=self)))
@@ -544,7 +554,7 @@ class Projectile:
 
 class Shockwave:
     """Onde de glace qui court au sol quand le boss retombe."""
-    damage = 1
+    damage = 25
     cause = DeathCause.BOSS
     breakable = False
     harmful = True

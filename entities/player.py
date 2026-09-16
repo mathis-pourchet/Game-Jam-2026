@@ -240,7 +240,7 @@ class Player:
         self.body.vy = 760
         self.on_ladder = False
 
-    def heal(self, amount=1):
+    def heal(self, amount):
         self.hp = min(self.progression.max_hp, self.hp + amount)
 
     # ------------------------------------------------------------------

@@ -10,18 +10,18 @@ from entities import assets
 from entities.enemy import Boss, Champion, Enemy, Jumper, Shockwave
 from entities.player import InputState, Player
 from entities.trap import Coin, Door, HeartPickup, Npc, Saw, Spring
-from settings import (COLOR_GOLD, COLOR_OUTLINE, CONFIG, FIXED_DT, FONT_PIXEL, FONT_TITLE, KEYS_ATTACK,
-                      KEYS_DOWN, KEYS_JUMP, KEYS_LEFT, KEYS_PAUSE, KEYS_RIGHT, KEYS_UP, ROOT, SCREEN_HEIGHT,
-                      SCREEN_WIDTH, SPRING_VELOCITY, STOMP_BOUNCE, TILE)
+from settings import (COLOR_GOLD, COLOR_OUTLINE, CONFIG, FIXED_DT, FONT_PIXEL, FONT_TITLE, HEART_HEAL,
+                      KEYS_ATTACK, KEYS_DOWN, KEYS_JUMP, KEYS_LEFT, KEYS_PAUSE, KEYS_RIGHT, KEYS_UP, ROOT,
+                      SCREEN_HEIGHT, SCREEN_WIDTH, SPRING_VELOCITY, STOMP_BOUNCE, TILE)
 from systems.death_manager import DeathCause, DeathManager, Respawn
 from systems.effects import Effects
-from systems.level_manager import HAZARD_BOXES, LevelSprites, load_level, tile_sprite
+from systems.level_manager import HAZARD_BOXES, HAZARD_DAMAGE, LevelSprites, load_level, tile_sprite
 from systems.physics import BREAKABLE, EMPTY, GATE, QBLOCK, USED, rects_overlap, tile_range
 from systems.progression_system import ProgressionSystem
 from systems.score_system import KILL_POINTS, ScoreSystem
 from views.background import Background
 from views.hud import Hud
-from views.ui import OutlinedText
+from views.ui import OutlinedText, health_bar
 
 ENEMY_CLASSES = {"zombie": Enemy, "jumper": Jumper, "champion": Champion}
 
@@ -358,6 +358,7 @@ class GameView(arcade.View):
         self.effects.shake(6, 0.2)
         b = self.player.body
         self.effects.emit(b.center_x, b.center_y, (255, 80, 90), 10, gravity=600)
+        self.effects.float_text(b.center_x, b.top + 14, f"-{damage}", (255, 90, 90), 15)
         if self.player.dead:
             self.killer = killer
         return True
@@ -381,9 +382,9 @@ class GameView(arcade.View):
         for heart in [h for h in self.hearts if rects_overlap(prect, h.box())]:
             self.hearts.remove(heart)
             heart.sprite.remove_from_sprite_lists()
-            p.heal(1)
+            p.heal(HEART_HEAL)
             self.audio.play("powerup")
-            self.effects.float_text(heart.x, heart.y + 20, "+1 coeur", (255, 130, 170))
+            self.effects.float_text(heart.x, heart.y + 20, f"+{HEART_HEAL} PV", (120, 240, 140))
 
         if b.vy <= 0:
             feet = (b.x + 2, b.y - 2, b.right - 2, b.y + 8)
@@ -443,7 +444,7 @@ class GameView(arcade.View):
             if kind.startswith("goo"):
                 self.kill_player(DeathCause.NORMAL)
             else:
-                self.hurt_player(1, hx, DeathCause.NORMAL, None)
+                self.hurt_player(HAZARD_DAMAGE[kind], hx, DeathCause.NORMAL, None)
         if b.top < -20:
             self.kill_player(DeathCause.NORMAL)
 
@@ -709,6 +710,16 @@ class GameView(arcade.View):
             text.x, text.y = left + 14, bottom + h - 13
             text.draw()
 
+    def draw_enemy_bars(self):
+        """Petite barre de vie au-dessus de chaque monstre visible (sauf le boss, qui a la sienne)."""
+        view_left = self.camera.position[0] - SCREEN_WIDTH / 2 - 80
+        view_right = view_left + SCREEN_WIDTH + 160
+        for e in self.enemies:
+            if e.dead or not e.health_bar or not view_left < e.body.center_x < view_right:
+                continue
+            w = max(36, e.body.w + 6)
+            health_bar(e.body.center_x - w / 2, e.body.top + 12, w, 6, e.hp, e.max_hp, trail=e.hp_shown)
+
     def on_draw(self):
         self.clear()
         self.gui_camera.use()
@@ -730,6 +741,7 @@ class GameView(arcade.View):
         self.player_list.draw(pixelated=True)
         self.projectile_sprites.draw(pixelated=True)
         self.tiles.gate.draw(pixelated=True)
+        self.draw_enemy_bars()
         self.effects.draw()
         self.draw_bubbles()
         self.gui_camera.use()

@@ -1,10 +1,10 @@
-"""Interface en jeu : cœurs, stats, morts/âge, pièces, chrono, barre du boss, messages."""
+"""Interface en jeu : barre de vie, stats, morts/âge, pièces, chrono, barre du boss, messages."""
 import arcade
 
 from entities import assets
-from settings import COLOR_GOLD, FONT_PIXEL, FONT_TITLE, SCREEN_HEIGHT, SCREEN_WIDTH
+from settings import COLOR_GOLD, COLOR_OUTLINE, FONT_PIXEL, FONT_TITLE, SCREEN_HEIGHT, SCREEN_WIDTH
 from systems.progression_system import STAT_ORDER
-from views.ui import OutlinedText, panel
+from views.ui import OutlinedText, health_bar, panel
 
 PHASES = {0: ("Jeune héros", (140, 230, 255)), 1: ("Vieillissant", (255, 190, 120)), 2: ("Très vieux", (255, 130, 110))}
 
@@ -12,14 +12,16 @@ PHASES = {0: ("Jeune héros", (140, 230, 255)), 1: ("Vieillissant", (255, 190, 1
 class Hud:
     def __init__(self, game):
         self.game = game
-        self.heart_full = assets.texture("heart_full.png")
-        self.heart_empty = assets.texture("heart_empty.png")
+        self.heart = assets.texture("heart_full.png")
+        self.hp_trail = 0.0
+        self.last_time = 0.0
         self.skull = assets.texture("skull.png")
         self.hourglass = assets.texture("hourglass.png")
         self.coin = assets.tileset("coin")
         self.icons = {s: assets.texture(f"icon_{s}.png") for s in STAT_ORDER}
         top = SCREEN_HEIGHT
-        self.t_deaths = OutlinedText("", SCREEN_WIDTH / 2 - 60, top - 44, size=22, anchor_x="left")
+        self.t_hp = OutlinedText("", 0, top - 37, size=15, thickness=2, anchor_y="center")
+        self.t_deaths =OutlinedText("", SCREEN_WIDTH / 2 - 60, top - 44, size=22, anchor_x="left")
         self.t_age = OutlinedText("", SCREEN_WIDTH / 2 - 60, top - 80, size=18, anchor_x="left")
         self.t_phase = OutlinedText("", SCREEN_WIDTH / 2, top - 106, size=13, thickness=2)
         self.t_coins = OutlinedText("", SCREEN_WIDTH - 118, top - 44, size=22, anchor_x="left", color=COLOR_GOLD)
@@ -36,11 +38,24 @@ class Hud:
         player = g.player
         top = SCREEN_HEIGHT
 
-        # --- cœurs et stats (haut gauche) ---
-        panel(12, 20 + max(prog.max_hp, 4) * 34 + 8, top - 124, top - 12)
-        for i in range(prog.max_hp):
-            tex = self.heart_full if i < player.hp else self.heart_empty
-            arcade.draw_texture_rect(tex, arcade.LBWH(22 + i * 34, top - 50, 30, 27), pixelated=True)
+        # --- barre de vie et stats (haut gauche) ---
+        max_hp = prog.max_hp
+        hp = max(0, min(player.hp, max_hp))
+        dt = max(0.0, g.time - self.last_time)
+        self.last_time = g.time
+        if hp >= self.hp_trail:
+            self.hp_trail = hp     # soin : pas de traînée
+        else:
+            self.hp_trail = max(hp, min(max_hp, self.hp_trail) - max_hp * 0.6 * dt)
+        bar_left, bar_w = 58, 150 + (max_hp - 100) * 0.8   # la barre s'allonge avec la Résistance
+        panel(12, max(bar_left + bar_w + 12, 194), top - 124, top - 12)
+        arcade.draw_texture_rect(self.heart, arcade.LBWH(22, top - 50, 30, 27), pixelated=True)
+        low = hp / max_hp <= 0.25 and not player.dead and int(g.time * 4) % 2 == 0
+        health_bar(bar_left, top - 50, bar_w, 26, hp, max_hp, trail=self.hp_trail,
+                   border=(255, 90, 90) if low else COLOR_OUTLINE, border_width=3 if low else 2)
+        self.t_hp.text = f"{hp} / {max_hp}"
+        self.t_hp.set_position(bar_left + bar_w / 2, top - 37)
+        self.t_hp.draw()
         for i, stat in enumerate(STAT_ORDER):
             x = 22 + i * 40
             arcade.draw_texture_rect(self.icons[stat], arcade.LBWH(x, top - 94, 28, 28), pixelated=True)
@@ -51,17 +66,17 @@ class Hud:
 
         # --- morts et âge (haut centre) ---
         deaths, max_deaths = g.death_manager.deaths, g.death_manager.max_deaths
-        panel(SCREEN_WIDTH / 2 - 110, SCREEN_WIDTH / 2 + 110, top - 118, top - 12)
-        arcade.draw_texture_rect(self.skull, arcade.LBWH(SCREEN_WIDTH / 2 - 100, top - 50, 30, 27), pixelated=True)
-        arcade.draw_texture_rect(self.hourglass, arcade.LBWH(SCREEN_WIDTH / 2 - 96, top - 86, 21, 27), pixelated=True)
+        panel(SCREEN_WIDTH / 2 - 115, SCREEN_WIDTH / 2 + 115, top - 100, top - 12)
+        arcade.draw_texture_rect(self.skull, arcade.LBWH(SCREEN_WIDTH / 2 - 105, top - 50, 30, 27), pixelated=True)
+        arcade.draw_texture_rect(self.hourglass, arcade.LBWH(SCREEN_WIDTH / 2 - 101, top - 86, 21, 27), pixelated=True)
         danger = deaths >= max_deaths - 2
         self.t_deaths.text = f"Morts {deaths} / {max_deaths}"
         self.t_deaths.set_color((255, 110, 110) if danger else (255, 255, 255))
         self.t_age.text = f"Âge : {prog.age_years} ans"
         label, color = PHASES[prog.aging_stage]
         if prog.aging_stage == 0 and prog.power > 0:
-            label, color = (f"Muscles niveau {prog.muscle_level}", COLOR_GOLD)
-        self.t_phase.text = label
+            _, color = (f"Muscles niveau {prog.muscle_level}", COLOR_GOLD)
+        # self.t_phase.text = _
         self.t_phase.set_color(color)
         self.t_deaths.draw()
         self.t_age.draw()

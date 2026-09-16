@@ -43,6 +43,7 @@ ATTACK_TIME = 0.26
 ATTACK_COOLDOWN = 0.34
 ATTACK_REACH = 34
 ATTACK_REACH_PER_FORCE = 7
+HEART_HEAL = 35          # PV rendus par un cœur ramassé
 
 # --- Polices (chargées depuis assets/fonts) ---
 FONT_TITLE = "Luckiest Guy"
