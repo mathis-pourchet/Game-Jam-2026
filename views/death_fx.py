@@ -4,7 +4,7 @@ suite quelle mort lui donne des pouvoirs :
 - mort normale : les couleurs s'éteignent, flash rouge, puis un iris se referme sur Finn
   dans le noir ;
 - mort spéciale (renaissance plus fort) : ralenti, flash blanc, rayons et ondes dorés,
-  puis l'iris se referme sur Finn dans la lumière.
+  puis l'iris se referme sur Finn dans une pénombre chaude (celle de l'écran « + 6 ans »).
 """
 import math
 
@@ -15,10 +15,11 @@ from settings import SCREEN_HEIGHT, SCREEN_WIDTH
 
 DURATION = 2.0
 GOLD = (255, 205, 70)
-LIGHT = (255, 240, 190)
+EMBER = (26, 19, 12)    # fond sombre et chaud de la mort spéciale (le noir de la mort normale, réchauffé)
 HOLE = 0.2          # rayon du trou de l'iris, en fraction de la taille de sa texture
 
 _iris = None
+_glow = None
 
 
 def iris_texture():
@@ -33,6 +34,24 @@ def iris_texture():
         img.putalpha(alpha)
         _iris = arcade.Texture(img, hash="iris_mort")
     return _iris
+
+
+def glow_texture():
+    """Halo blanc : opaque au centre, qui s'efface doucement vers le bord (coins transparents)."""
+    global _glow
+    if _glow is None:
+        alpha = Image.radial_gradient("L").point(lambda v: int(255 * max(0.0, 1 - v / 181) ** 2))
+        img = Image.new("RGBA", (256, 256), (255, 255, 255, 255))
+        img.putalpha(alpha)
+        _glow = arcade.Texture(img, hash="halo_mort")
+    return _glow
+
+
+def draw_glow(cx, cy, size, color, alpha):
+    """Halo coloré de diamètre `size` centré sur (cx, cy)."""
+    half = size / 2
+    arcade.draw_texture_rect(glow_texture(), arcade.LRBT(cx - half, cx + half, cy - half, cy + half),
+                             color=arcade.types.Color(*color), alpha=int(alpha))
 
 
 def draw_iris(sx, sy, radius, color):
@@ -105,4 +124,4 @@ class DeathTransition:
             arcade.draw_lrbt_rectangle_filled(0, w, 0, h, (255, 255, 255, int(255 * (1 - t / 0.45))))
         k = min(1.0, max(0.0, (t - 0.9) / 1.0))
         if k > 0:
-            draw_iris(sx, sy, 900 * (1 - k) ** 2, LIGHT)
+            draw_iris(sx, sy, 900 * (1 - k) ** 2, EMBER)
