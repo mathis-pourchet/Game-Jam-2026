@@ -5,7 +5,7 @@ suite quelle mort lui donne des pouvoirs :
   dans le noir ;
 - mort spéciale (renaissance plus fort) : ralenti, la scène s'assombrit pendant que Finn
   brille dans un halo doré (éclair, rayons courts, petites ondes, étincelles qui montent),
-  puis l'iris se referme sur Finn dans une pénombre chaude (celle de l'écran « + 6 ans »).
+  puis l'iris se referme sur Finn dans une pénombre chaude (celle de l'écran de mort).
 """
 import math
 

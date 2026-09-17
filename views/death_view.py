@@ -1,10 +1,11 @@
-"""Après la mort, un seul message : « + 6 ans ».
+"""Après la mort : le nouvel âge de Finn et une petite pique tirée au hasard.
 
 Une mort normale reste dans le noir. Une mort spéciale reste sobre elle aussi, mais dans une
 pénombre chaude : un halo doré qui respire derrière le texte, quelques braises qui montent et
 un texte couleur or pâle (voir views/death_fx.py), puis elle mène au choix du pouvoir.
 """
 import math
+import random
 
 import arcade
 
@@ -13,10 +14,28 @@ from views import screen
 from views.death_fx import EMBER, GOLD, draw_glow
 from views.ui import OutlinedText
 
-AUTO_CONTINUE = 1.9     # s avant de continuer tout seul
+AUTO_CONTINUE = 2.8     # s avant de continuer tout seul (le temps de lire la pique)
 SKIP_AFTER = 0.5        # s avant qu'une touche puisse passer l'écran
 PALE_GOLD = (240, 212, 140)
 MOTES = 18              # braises dorées de la mort spéciale
+TAUNT_DELAY = 0.35      # s avant que la pique apparaisse, sous l'âge
+
+TAUNTS = (
+    "La vieillesse, c'est pas une stratégie.",
+    "Tu comptes finir avant la retraite ?",
+    "Jake aurait déjà fini. En dormant.",
+    "Courageux. Pas doué, mais courageux.",
+    "Les zombies commencent à te reconnaître.",
+    "C'était voulu, bien sûr.",
+)
+_last_taunt = None
+
+
+def pick_taunt():
+    """Une pique au hasard, jamais deux fois la même d'affilée."""
+    global _last_taunt
+    _last_taunt = random.choice([t for t in TAUNTS if t != _last_taunt])
+    return _last_taunt
 
 
 def draw_motes(t, w, h, alpha):
@@ -41,10 +60,11 @@ class DeathCardView(arcade.View):
         self.special = outcome.offer_upgrade
         self.time = 0.0
         self.camera = screen.make_camera()
-        years = game.progression.age_cfg["years_per_death"]
         color = PALE_GOLD if self.special else (215, 215, 225)
-        self.text = OutlinedText(f"+ {years} ans", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 40, color=color, size=130,
-                                 thickness=8)
+        self.text = OutlinedText(f"{game.progression.age_years} ans", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 10,
+                                 color=color, size=130, thickness=8)
+        self.taunt = OutlinedText(pick_taunt(), SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 110,
+                                  color=(205, 180, 125) if self.special else (160, 160, 175), size=30, thickness=3)
 
     def on_show_view(self):
         screen.set_mouse(self.window, False)
@@ -87,6 +107,8 @@ class DeathCardView(arcade.View):
             draw_glow(w / 2, h / 2 - 5, 760 * pulse, GOLD, 95 * glow)
             draw_motes(self.time, w, h, 170 * glow)
         appear = min(1.0, self.time / 0.25)
-        self.text.set_position(w / 2, h / 2 - 40 + (1 - appear) ** 2 * 60)    # le texte tombe en place
+        self.text.set_position(w / 2, h / 2 - 10 + (1 - appear) ** 2 * 60)    # l'âge tombe en place
         self.text.set_alpha(255 * appear)
         self.text.draw()
+        self.taunt.set_alpha(255 * min(1.0, max(0.0, (self.time - TAUNT_DELAY) / 0.3)))
+        self.taunt.draw()
