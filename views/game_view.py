@@ -21,7 +21,7 @@ from systems.progression_system import ProgressionSystem
 from systems.score_system import ScoreSystem
 from views import screen
 from views.background import Background
-from views.death_fx import DeathTransition, iris_texture
+from views.death_fx import DeathTransition, glow_texture, iris_texture
 from views.hud import Hud
 from views.player_fx import PlayerFx
 from views.tip_bubble import TipBubble
@@ -30,6 +30,7 @@ from views.ui import OutlinedText, health_bar
 ENEMY_CLASSES = {"zombie": Enemy, "jumper": Jumper, "champion": Champion, "king": FireKing}
 # Le boss d'un niveau est choisi par "boss"."kind" dans config/levels.json
 BOSS_CLASSES = {"ice_king": Boss, "butler": ButlerBoss}
+SPARK_COLORS = ((255, 214, 90), (255, 240, 200), (255, 160, 120))    # étincelles de la mort spéciale
 
 
 def load_level_config(index=0):
@@ -81,9 +82,10 @@ class GameView(arcade.View):
         self.killer = None
         self.gate_closed = False
         self.new_run()
-        # Préparé pendant le chargement plutôt qu'en plein jeu : la texture de la 1re mort,
+        # Préparé pendant le chargement plutôt qu'en plein jeu : les textures de la 1re mort,
         # et une 1re image (shaders, envoi des textures et des lettres au GPU : ~50 ms).
         iris_texture()
+        glow_texture()
         self.on_draw()
 
     # ------------------------------------------------------------------
@@ -566,12 +568,13 @@ class GameView(arcade.View):
         self.transition = DeathTransition(special)
         self.audio.stop_music()
         b = self.player.body
-        if special:        # la mort qui rend plus fort : explosion de lumière
+        if special:        # la mort qui rend plus fort : Finn s'illumine, sans envahir l'écran
             self.audio.play("death_special")
-            self.effects.burst(b.center_x, b.center_y, COLOR_GOLD, 50)
-            self.effects.emit(b.center_x, b.center_y, (255, 245, 200), 40, speed=(200, 520), gravity=-60,
-                              life=(0.5, 1.1), glow=True, size=(2, 5))
-            self.effects.shake(14, 0.5)
+            self.effects.emit(b.center_x, b.center_y, COLOR_GOLD, 24, speed=(90, 240), life=(0.4, 0.8),
+                              gravity=500, size=(2, 4))
+            self.effects.emit(b.center_x, b.center_y, (255, 245, 200), 18, speed=(60, 180), gravity=-60,
+                              life=(0.5, 1.0), glow=True, size=(2, 4))
+            self.effects.shake(9, 0.4)
         else:              # la mort normale : cendres grises
             self.audio.play("death")
             self.effects.emit(b.center_x, b.center_y, (120, 115, 125), 26, speed=(30, 120), gravity=-40,
@@ -584,6 +587,11 @@ class GameView(arcade.View):
         self.state_time += dt
         self.transition.update(dt)
         self.player.update(dt * self.transition.time_scale(), self.input, self.level)
+        if self.transition.special and self.state_time < 1.3 and random.random() < dt * 40:
+            b = self.player.body            # étincelles qui montent de Finn
+            self.effects.emit(b.center_x + random.uniform(-18, 18), b.center_y + random.uniform(-24, 10),
+                              random.choice(SPARK_COLORS), 1, speed=(30, 70), angle=(70, 110), life=(0.7, 1.2),
+                              gravity=-120, size=(2, 3.5))
         if self.transition.done:
             self.finish_death()
 

@@ -3,7 +3,8 @@ suite quelle mort lui donne des pouvoirs :
 
 - mort normale : les couleurs s'éteignent, flash rouge, puis un iris se referme sur Finn
   dans le noir ;
-- mort spéciale (renaissance plus fort) : ralenti, flash blanc, rayons et ondes dorés,
+- mort spéciale (renaissance plus fort) : ralenti, la scène s'assombrit pendant que Finn
+  brille dans un halo doré (éclair, rayons courts, petites ondes, étincelles qui montent),
   puis l'iris se referme sur Finn dans une pénombre chaude (celle de l'écran « + 6 ans »).
 """
 import math
@@ -15,6 +16,8 @@ from settings import SCREEN_HEIGHT, SCREEN_WIDTH
 
 DURATION = 2.0
 GOLD = (255, 205, 70)
+PALE = (255, 240, 200)
+ROSE = (255, 150, 120)
 EMBER = (26, 19, 12)    # fond sombre et chaud de la mort spéciale (le noir de la mort normale, réchauffé)
 HOLE = 0.2          # rayon du trou de l'iris, en fraction de la taille de sa texture
 
@@ -70,14 +73,14 @@ def draw_iris(sx, sy, radius, color):
             arcade.draw_lrbt_rectangle_filled(sl, sr, sb, st, color)
 
 
-def draw_rays(sx, sy, angle, alpha, count=16, length=1500):
-    """Rayons de lumière dorés qui partent de (sx, sy)."""
+def draw_rays(sx, sy, angle, alpha, count=16, length=1500, width=0.07):
+    """Rayons de lumière dorés qui partent de (sx, sy) ; `width` = demi-angle d'un rayon."""
     color = (*GOLD, int(alpha))
     for i in range(count):
         a = angle + i * math.tau / count
         arcade.draw_triangle_filled(sx, sy,
-                                    sx + math.cos(a - 0.07) * length, sy + math.sin(a - 0.07) * length,
-                                    sx + math.cos(a + 0.07) * length, sy + math.sin(a + 0.07) * length, color)
+                                    sx + math.cos(a - width) * length, sy + math.sin(a - width) * length,
+                                    sx + math.cos(a + width) * length, sy + math.sin(a + width) * length, color)
 
 
 class DeathTransition:
@@ -112,16 +115,20 @@ class DeathTransition:
         draw_iris(sx, sy, 900 * (1 - k) ** 2, (0, 0, 0))
 
     def _draw_special(self, sx, sy, now):
+        """Tout se passe autour de Finn : la scène s'assombrit, lui reste dans un halo doré."""
         t, w, h = self.time, SCREEN_WIDTH, SCREEN_HEIGHT
         glow = min(1.0, t / 0.4)
-        draw_rays(sx, sy, now * 0.9, 110 * glow)
-        arcade.draw_lrbt_rectangle_filled(0, w, 0, h, (255, 190, 60, int(70 * glow)))
-        for start in (0.0, 0.3, 0.6):                       # ondes de choc dorées
+        arcade.draw_lrbt_rectangle_filled(0, w, 0, h, (*EMBER, int(120 * min(1.0, t / 0.8))))
+        pulse = 1 + 0.08 * math.sin(now * 5)
+        draw_glow(sx, sy, 330 * pulse * glow, GOLD, 120 * glow)
+        draw_glow(sx, sy, 150 * pulse, ROSE, 70 * glow)
+        draw_rays(sx, sy, now * 0.9, 45 * glow, count=12, length=30 + 90 * glow, width=0.05)
+        for start in (0.0, 0.35):                           # deux petites ondes dorées
             age = t - start
-            if 0 <= age < 0.9:
-                arcade.draw_circle_outline(sx, sy, 40 + age * 900, (255, 245, 200, int(230 * (1 - age / 0.9))), 10)
-        if t < 0.45:
-            arcade.draw_lrbt_rectangle_filled(0, w, 0, h, (255, 255, 255, int(255 * (1 - t / 0.45))))
+            if 0 <= age < 0.7:
+                arcade.draw_circle_outline(sx, sy, 20 + age * 260, (*PALE, int(200 * (1 - age / 0.7))), 3)
+        if t < 0.3:                                         # éclair bref, sur Finn seulement
+            draw_glow(sx, sy, 220, (255, 255, 255), 230 * (1 - t / 0.3))
         k = min(1.0, max(0.0, (t - 0.9) / 1.0))
         if k > 0:
             draw_iris(sx, sy, 900 * (1 - k) ** 2, EMBER)
