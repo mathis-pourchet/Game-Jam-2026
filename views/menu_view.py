@@ -7,20 +7,19 @@ from entities import assets
 from settings import (COLOR_GOLD, COLOR_PINK, FONT_TITLE, KEYS_CONFIRM, KEYS_DOWN, KEYS_UP, SCREEN_HEIGHT,
                       SCREEN_WIDTH, TILE)
 from systems.score_system import ScoreSystem
+from views import screen
 from views.background import Background
 from views.ui import OutlinedText, panel
 
 HELP = (
-    "BUT : traverser les Plaines Bonbons et vaincre le Roi des Glaces, en mourant le moins possible.\n\n"
+    "BUT : traverser la Terre de Ooo jusqu'au bout de la route, et terrasser ce qui t'y attend.\n\n"
     "COMMANDES : Flèches / QD / AD pour bouger, ESPACE (ou Haut / Z / W) pour sauter, "
     "J / X / K pour l'épée, Haut / Bas sur une échelle, Bas + Saut pour traverser une plateforme, "
     "Échap pour la pause, M pour le son.\n\n"
-    "MORT & RENAISSANCE : tué par un zombie normal ou un piège, tu reviens au début de la map. "
-    "Tué par un sorcier squelette (monstre niveau 2) ou par le boss, tu renais plus fort : tu choisis "
-    "une stat (Saut, Vitesse, Force, Résistance) et Finn se muscle (4 niveaux). "
-    "Mourir dans l'arène te ramène devant la grille.\n\n"
-    "VIEILLISSEMENT : chaque mort fait vieillir Finn. Après 6 morts, il perd une stat à chaque mort. "
-    "À 10 morts : GAME OVER, tout est réinitialisé !"
+    "ET SI TU TOMBES ? Ici, tomber n'est pas la fin. Quelque chose se perd, quelque chose se gagne : "
+    "tous les adversaires ne te reprennent pas la même chose, et certains laissent derrière eux "
+    "bien plus qu'un cadavre.\n\n"
+    "Mais le temps, lui, ne rend jamais ce qu'il prend. Et il finit toujours par présenter l'addition."
 )
 
 
@@ -33,8 +32,9 @@ class MenuView(arcade.View):
         self.selected = 0
         self.show_help = False
         self.background = Background()
+        self.camera = screen.make_camera()
         cx = SCREEN_WIDTH / 2
-        self.title = OutlinedText("FINN SANS FIN", cx, SCREEN_HEIGHT - 170, color=COLOR_GOLD, size=96, thickness=7)
+        self.title = OutlinedText("THE FINNING", cx, SCREEN_HEIGHT - 170, color=COLOR_GOLD, size=96, thickness=7)
         self.subtitle = OutlinedText("Meurs. Renais. Deviens légendaire.", cx, SCREEN_HEIGHT - 222,
                                      color=COLOR_PINK, size=28)
         self.options = [OutlinedText(label, cx, 330 - i * 58, size=36) for i, label in enumerate(self.OPTIONS)]
@@ -61,6 +61,7 @@ class MenuView(arcade.View):
         self.dirt = assets.tileset("dirt_mid")
 
     def on_show_view(self):
+        screen.set_mouse(self.window, True)
         self.window.audio.play_music("music_menu")
 
     def on_update(self, delta_time):
@@ -70,8 +71,8 @@ class MenuView(arcade.View):
         choice = self.OPTIONS[self.selected]
         self.window.audio.play("select")
         if choice == "Jouer":
-            from views.game_view import GameView
-            self.window.show_view(GameView())
+            from views.level_select_view import LevelSelectView
+            self.window.show_view(LevelSelectView())
         elif choice == "Comment jouer":
             self.show_help = True
         else:
@@ -97,6 +98,7 @@ class MenuView(arcade.View):
             arcade.exit()
 
     def on_mouse_motion(self, x, y, dx, dy):
+        x, y = screen.to_logical(self.camera, x, y)
         for i, option in enumerate(self.options):
             if abs(y - option.main.y - 14) < 26 and abs(x - SCREEN_WIDTH / 2) < 180:
                 self.selected = i
@@ -105,13 +107,14 @@ class MenuView(arcade.View):
         if self.show_help:
             self.show_help = False
             return
+        x, y = screen.to_logical(self.camera, x, y)
         for i, option in enumerate(self.options):
             if abs(y - option.main.y - 14) < 26 and abs(x - SCREEN_WIDTH / 2) < 180:
                 self.selected = i
                 self.activate()
 
     def on_draw(self):
-        self.clear()
+        screen.begin_frame(self, self.camera)
         self.background.draw(self.time * 70, SCREEN_HEIGHT / 2, self.time)
         offset = -(self.time * 70) % TILE
         for i in range(-1, SCREEN_WIDTH // TILE + 2):

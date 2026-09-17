@@ -4,7 +4,9 @@ import math
 import arcade
 
 from entities import assets
-from settings import COLOR_GOLD, COLOR_OUTLINE, KEYS_CONFIRM, KEYS_LEFT, KEYS_RIGHT, SCREEN_HEIGHT, SCREEN_WIDTH
+from settings import (COLOR_GOLD, COLOR_OUTLINE, FONT_TITLE, KEYS_CONFIRM, KEYS_LEFT, KEYS_RIGHT, SCREEN_HEIGHT,
+                      SCREEN_WIDTH)
+from views import screen
 from views.ui import OutlinedText, panel
 
 CARD_W, CARD_H, GAP = 270, 330, 40
@@ -40,13 +42,14 @@ class UpgradeView(arcade.View):
                 "name": OutlinedText(info["label"], cx, bottom + 150, color=info["color"], size=30),
                 "effect": arcade.Text(info["effect"], cx, bottom + 118, (240, 240, 250), 14, width=CARD_W - 30,
                                       multiline=True, align="center", anchor_x="center", anchor_y="top",
-                                      font_name="Luckiest Guy"),
+                                      font_name=FONT_TITLE),
                 "level": OutlinedText(f"Niv. {info['level']}  >  {info['level'] + 1}", cx, bottom + 22, size=18,
                                       thickness=2),
                 "key": OutlinedText(str(i + 1), x + 22, bottom + CARD_H - 38, size=20, thickness=2),
             })
 
     def on_show_view(self):
+        screen.set_mouse(self.window, True)
         self.game.audio.play("rebirth")
 
     def on_update(self, delta_time):
@@ -57,15 +60,9 @@ class UpgradeView(arcade.View):
             return
         stat = self.choices[index]
         prog = self.game.progression
-        muscles_before = prog.muscle_level
         prog.upgrade(stat)
         self.game.audio.play("select")
         self.game.respawn(self.outcome)
-        info = prog.describe(stat)
-        sub = info["effect"]
-        if prog.muscle_level > muscles_before and not prog.is_aging:
-            sub = f"Finn se muscle : niveau {prog.muscle_level} !"
-        self.game.show_toast(f"+1 {info['label']} !", sub, 2.6)
         self.window.show_view(self.game)
 
     def on_key_press(self, key, modifiers):
@@ -92,17 +89,18 @@ class UpgradeView(arcade.View):
         return None
 
     def on_mouse_motion(self, x, y, dx, dy):
-        index = self._card_at(x, y)
+        index = self._card_at(*screen.to_logical(self.game.gui_camera, x, y))
         if index is not None:
             self.selected = index
 
     def on_mouse_press(self, x, y, button, modifiers):
-        index = self._card_at(x, y)
+        index = self._card_at(*screen.to_logical(self.game.gui_camera, x, y))
         if index is not None:
             self.choose(index)
 
     def on_draw(self):
         self.game.on_draw()
+        self.game.gui_camera.use()
         arcade.draw_lrbt_rectangle_filled(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT, (40, 16, 60, 215))
         self.title.draw()
         self.sub.draw()

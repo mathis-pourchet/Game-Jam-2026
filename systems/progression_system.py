@@ -11,14 +11,18 @@ from settings import ATTACK_REACH, ATTACK_REACH_PER_FORCE, CONFIG, TILE
 
 STAT_ORDER = ["jump", "speed", "force", "resistance"]
 
+# Taille d'affichage de Finn (la boîte de collision, elle, ne change pas) : il grossit
+# nettement avec ses muscles, et se tasse en vieillissant.
 VARIANT_SCALE = {
     "muscle1": (1.0, 1.0),
-    "muscle2": (1.03, 1.03),
-    "muscle3": (1.06, 1.05),
-    "muscle4": (1.1, 1.08),
-    "old1": (1.0, 0.96),
-    "old2": (0.98, 0.92),
+    "muscle2": (1.15, 1.15),
+    "muscle3": (1.3, 1.3),
+    "muscle4": (1.45, 1.45),
+    "old1": (0.96, 0.86),
+    "old2": (0.92, 0.74),
 }
+GROWTH_PER_EXTRA_POWER = 0.015   # continue de grossir après le niveau de muscles 4...
+MAX_EXTRA_GROWTH = 1.15          # ... jusqu'à +15 %
 
 
 class ProgressionSystem:
@@ -99,6 +103,16 @@ class ProgressionSystem:
         if stage == 1:
             return "old1"
         return f"muscle{self.muscle_level}"
+
+    @property
+    def visual_scale(self):
+        """Échelle (x, y) du sprite de Finn."""
+        sx, sy = VARIANT_SCALE[self.visual_variant]
+        if self.is_aging:
+            return sx, sy
+        extra = max(0, self.power - (len(self.power_tiers) - 1))
+        grow = min(MAX_EXTRA_GROWTH, 1 + GROWTH_PER_EXTRA_POWER * extra)
+        return sx * grow, sy * grow
 
     @property
     def aura_strength(self):

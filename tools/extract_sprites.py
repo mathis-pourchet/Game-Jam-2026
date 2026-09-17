@@ -3,16 +3,19 @@
 Usage (depuis la racine du projet) :
     .venv/bin/python tools/extract_sprites.py
 
-Entrées (fond « damier » peint, pas de transparence) :
+Entrées (fond « damier » peint, sauf le roi déjà transparent) :
     assets/finn/finn-muscle-niveau-1.png       Finn, muscles niveau 1
     assets/finn/finn-muscle-niveau-2-à-4.png   Finn, muscles niveaux 2, 3 et 4 (3 panneaux)
     assets/monstre-niveau-1/zombie.png         monstre niveau 1 (zombie)
     assets/monstre-niveau-2/monstre.png        monstre niveau 2 (sorcier squelette, champion)
     assets/Boss-final/boss.png                 boss final (Roi des Glaces)
+    assets/monstre-niveau-3/monstre.png        monstre niveau 3 (roi orange), damier gris clair
+    assets/boos-final-2/boss-2.png             boss final n°2 (majordome menthe)
 Sorties (assets/sprites/) :
     finn_muscle1..4.png, finn_old1.png, finn_old2.png + finn.json
     monster_zombie.png, monster_lich.png, monster_boss.png + monsters.json
-    proj_fireball.png, proj_ice.png
+    monster_king.png, monster_butler.png
+    proj_fireball.png, proj_ice.png, proj_king_fire.png
 
 Les planches sont découpées automatiquement (détection des sprites, rangés en
 lignes) : les tables *_ANIMS disent quelle ligne / quelle position correspond à
@@ -41,8 +44,20 @@ def _is_checker(c, strict=False):
     return max(r, g, b) - min(r, g, b) <= 32 and b - r >= 3 and 80 <= m <= 222
 
 
-def remove_checker(im):
-    """Supprime le damier gris-bleu peint en remplissant depuis le fond."""
+def _is_light_checker(c, strict=False):
+    """Damier gris clair (planche du majordome) : gris très peu saturé et lumineux."""
+    r, g, b = c
+    if strict:
+        return max(r, g, b) - min(r, g, b) <= 10 and min(r, g, b) >= 170
+    return max(r, g, b) - min(r, g, b) <= 18 and min(r, g, b) >= 150
+
+
+def remove_checker(im, is_checker=_is_checker):
+    """Supprime le damier peint en remplissant depuis le fond.
+
+    is_checker décrit le damier : gris-bleu par défaut, gris clair pour la
+    planche du majordome menthe (_is_light_checker).
+    """
     im = im.convert("RGB")
     w, h = im.size
     px = im.load()
@@ -56,12 +71,12 @@ def remove_checker(im):
         q.append((w - 1, y))
     for y in range(0, h, 4):
         for x in range(0, w, 4):
-            if _is_checker(px[x, y], strict=True):
+            if is_checker(px[x, y], strict=True):
                 q.append((x, y))
     while q:
         x, y = q.popleft()
         i = y * w + x
-        if bg[i] or not _is_checker(px[x, y]):
+        if bg[i] or not is_checker(px[x, y]):
             continue
         bg[i] = 1
         if x > 0:
@@ -437,14 +452,40 @@ MONSTERS = {
         "max_width": {"shoot": 215},
         "projectile": ("proj_ice.png", 2, 12, 0.55),
     },
+    # Planche déjà transparente, mais chaque sprite est cerné d'un halo rouge/jaune
+    # d'alpha 1 à 15 : sans alpha_min les voisins ne forment qu'une seule composante.
+    "king": {
+        "sheet": "assets/monstre-niveau-3/monstre.png", "scale": 0.72, "alpha_min": 200,
+        "anims": {"idle": (0, [0, 1, 2, 3]), "walk": (1, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                  "run": (2, [0, 1, 2, 3, 4, 5, 6]), "taunt": (3, [0, 1, 3]),
+                  # coups d'estoc : les frames 1/4/5 (grand croissant lumineux) débordent
+                  # trop à droite et doubleraient la largeur de case pour tout le roi
+                  "attack": (4, [0, 2, 3, 6]), "cast": (5, [0, 4, 5, 6, 7]),
+                  "hurt": (6, [0, 1, 2]), "die": (6, [3, 4, 5, 6, 7, 8, 9])},
+        "projectile": ("proj_king_fire.png", 5, 9, 0.72),
+    },
+    # Damier gris clair (et non gris-bleu) ; min_area écarte l'ombre portée des sauts.
+    "butler": {
+        "sheet": "assets/boos-final-2/boss-2.png", "scale": 0.95,
+        "checker": _is_light_checker, "min_area": 3000,
+        "anims": {"idle": (0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), "walk": (1, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                  "run": (2, [0, 1, 2, 3, 4, 5, 6, 7, 8]), "jump": (3, [0, 1, 2, 3, 4]),
+                  "hurt": (4, [0, 1, 2, 3]), "attack": (5, [0, 1, 2, 3, 4, 5]),
+                  "die": (6, [2, 3, 4, 5, 6, 7, 8])},
+    },
 }
 
 
 def build_monsters():
     meta = {"projectiles": {}}
     for name, spec in MONSTERS.items():
-        cut = remove_checker(Image.open(ROOT / spec["sheet"]))
-        rows = group_rows(components(cut))
+        src = Image.open(ROOT / spec["sheet"])
+        if "alpha_min" in spec:
+            # planche déjà transparente : on jette le halo lumineux qui soude les sprites
+            cut = harden_alpha(src.convert("RGBA"), spec["alpha_min"] - 1)
+        else:
+            cut = remove_checker(src, spec.get("checker", _is_checker))
+        rows = group_rows(components(cut, min_area=spec.get("min_area", 300)))
         frames, anims = [], {}
         for anim, (row, positions) in spec["anims"].items():
             anims[anim] = []

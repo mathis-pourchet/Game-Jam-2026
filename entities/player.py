@@ -8,7 +8,9 @@ from settings import (AIR_ACCEL, ATTACK_COOLDOWN, ATTACK_TIME, COYOTE_TIME, GRAV
                       GROUND_FRICTION, ICE_ACCEL, ICE_FRICTION, INVULN_TIME, JUMP_BUFFER, JUMP_CUT,
                       KNOCKBACK_X, KNOCKBACK_Y, LADDER_SPEED, MAX_FALL_SPEED, PLAYER_H, PLAYER_W, TILE)
 from systems.physics import ONEWAY, Body, move_body
-from systems.progression_system import VARIANT_SCALE
+
+# Teinte du sprite selon l'âge : Finn grisonne franchement en vieillissant
+AGING_TINT = {0: (255, 255, 255), 1: (205, 200, 205), 2: (165, 160, 170)}
 
 
 def approach(value, target, step):
@@ -97,10 +99,11 @@ class Player:
         events = []
         b = self.body
         if self.dead:
+            # le corps tombe et reste allongé au sol (pas de bond ni de traversée du sol)
             self.death_time += dt
-            if self.death_time > 0.35:
-                b.vy -= GRAVITY * 0.7 * dt
-                b.y += b.vy * dt
+            b.vx = approach(b.vx, 0, 900 * dt)
+            b.vy = max(-MAX_FALL_SPEED, b.vy - GRAVITY * dt)
+            move_body(b, level.grid, dt)
             self.anim_time += dt
             self.update_sprite()
             return events
@@ -237,7 +240,7 @@ class Player:
         self.death_cause = cause
         self.death_time = 0.0
         self.body.vx = 0
-        self.body.vy = 760
+        self.body.vy = min(self.body.vy, 0.0)
         self.on_ladder = False
 
     def heal(self, amount):
@@ -271,12 +274,15 @@ class Player:
         return a["idle"][int(t * 4) % len(a["idle"])]
 
     def update_sprite(self):
-        variant = self.progression.visual_variant
+        prog = self.progression
+        variant = prog.visual_variant
         right, left = self.textures[variant]
         self.sprite.texture = (right if self.facing > 0 else left)[self._frame(self.variant_anims[variant])]
-        sx, sy = VARIANT_SCALE[variant]
+        sx, sy = prog.visual_scale
         self.sprite.scale = (sx, sy)
-        self.sprite.center_x = self.body.center_x
+        tremble = math.sin(self.anim_time * 55) * 1.2 if prog.aging_stage == 2 and not self.dead else 0.0
+        self.sprite.center_x = self.body.center_x + tremble
         self.sprite.center_y = self.body.y + (self.cell_h / 2 - self.foot) * sy
+        self.sprite.color = AGING_TINT[prog.aging_stage]
         blink = self.invuln > 0 and not self.dead and int(self.invuln * 14) % 2 == 0
         self.sprite.alpha = 80 if blink else 255

@@ -23,6 +23,24 @@ def seq_frame(seq, t, fps, loop=True):
     return seq[i % len(seq)] if loop else seq[min(i, len(seq) - 1)]
 
 
+def pick_anim(anims, *names):
+    """Première animation disponible parmi `names` (repli : idle).
+
+    Les planches fournies par l'équipe n'ont pas toutes les mêmes animations :
+    on demande par nom, avec des solutions de repli, plutôt que de planter.
+    """
+    for name in names:
+        seq = anims.get(name)
+        if seq:
+            return seq
+    return anims["idle"]
+
+
+def at(seq, index):
+    """Image `index` d'une séquence, sans jamais dépasser sa longueur."""
+    return seq[min(max(index, 0), len(seq) - 1)]
+
+
 class Enemy:
     """Monstre niveau 1 : le zombie. Patrouille, court vers Finn et lui bondit dessus."""
     art = "zombie"
@@ -85,7 +103,11 @@ class Enemy:
         if self.dead:
             self.dying += dt
             self.anim_time += dt
-            if self.dying > self.death_duration():
+            b = self.body                 # le cadavre retombe au sol au lieu de flotter
+            b.vx = 0
+            b.vy = max(-MAX_FALL_SPEED, b.vy - GRAVITY * dt)
+            move_body(b, level.grid, dt, oneway=self.uses_platforms)
+            if self.dying > self.death_duration() or b.top < 0:
                 self.removed = True
             self.update_sprite()
             return
@@ -154,6 +176,7 @@ class Enemy:
         self.dying = 0.0
         self.anim_time = 0.0
         self.body.vx = 0
+        self.body.vy = min(self.body.vy, 0.0)
         events.append(("enemy_dead", self))
 
     def death_duration(self):
@@ -234,6 +257,8 @@ class Champion(Enemy):
     stomp_kills = False
     SWIPE_DAMAGE = 35
     FIREBALL_DAMAGE = 25
+    PROJECTILE = "proj_fireball.png"
+    PROJECTILE_COLOR = (120, 255, 170)
 
     def reset_extra(self):
         self.cast_cd = random.uniform(1.0, 2.0)
@@ -255,9 +280,9 @@ class Champion(Enemy):
                 self.state, self.state_time = "cast_release", 0.45
                 x = b.center_x + self.facing * (b.w / 2 + 18)
                 y = b.y + b.h * 0.6
-                events.append(("projectile", Projectile("proj_fireball.png", x, y, self.facing * 290, 0, self.FIREBALL_DAMAGE,
-                                                        DeathCause.CHAMPION, life=3.5, radius=13,
-                                                        color=(120, 255, 170), owner=self)))
+                events.append(("projectile", Projectile(self.PROJECTILE, x, y, self.facing * 290, 0,
+                                                        self.FIREBALL_DAMAGE, DeathCause.CHAMPION, life=3.5,
+                                                        radius=13, color=self.PROJECTILE_COLOR, owner=self)))
                 events.append(("sound", "spit", 0.9))
             else:
                 self.state = "patrol"
@@ -580,6 +605,204 @@ class Shockwave:
         self.sprite.center_x = self.x
         self.sprite.center_y = self.y + 16 + math.sin(self.life * 30) * 2
         self.sprite.alpha = int(255 * min(1.0, self.life / 0.4))
+
+
+class FireKing(Champion):
+    """Monstre niveau 3 : le roi orange. Même rôle que le sorcier squelette
+    (c'est un CHAMPION : mourir face à lui fait renaître Finn plus fort) mais
+    plus grand, plus résistant, et ses boules de feu partent plus souvent."""
+    art = "king"
+    score_kind = "king"
+    w, h = 46, 78
+    max_hp = 80
+    speed = 52
+    chase_speed = 115
+    sight = 12 * TILE
+    damage = 30
+    SWIPE_DAMAGE = 40
+    FIREBALL_DAMAGE = 28
+    PROJECTILE = "proj_king_fire.png"     # boule de feu découpée dans sa propre planche
+    PROJECTILE_COLOR = (255, 170, 70)
+
+    def reset_extra(self):
+        self.cast_cd = random.uniform(0.6, 1.2)
+
+    def death_duration(self):
+        return 1.3
+
+    def frame(self):
+        a = self.anims
+        s = self.state
+        if self.dead:
+            return seq_frame(a["die"], self.dying, 5, loop=False)
+        attack = pick_anim(a, "attack", "cast")
+        cast = pick_anim(a, "cast", "attack")
+        if s == "swipe_windup":
+            return at(attack, int((0.4 - self.state_time) / 0.2))
+        if s == "swipe":
+            return at(attack, 2 + int((0.3 - self.state_time) / 0.15))
+        if s == "cast_windup":
+            return at(cast, int((0.55 - self.state_time) / 0.28))
+        if s == "cast_release":
+            return at(cast, 2)
+        if s == "recover" and self.hurt_timer <= 0:
+            return seq_frame(a["idle"], self.anim_time, 5)
+        return Enemy.frame(self)
+
+
+class ButlerBoss(Boss):
+    """Boss final n°2 : le Majordome Menthe. Pas de vol, tout se joue au sol :
+    il charge en ligne droite, bondit pour retomber en onde de choc et lance
+    des bonbons explosifs. Petit, rapide et hargneux."""
+    art = "butler"
+    score_kind = "boss"
+    w, h = 64, 96
+    speed = 130
+    damage = 28
+    DASH_DAMAGE = 34
+    CANDY_DAMAGE = 22
+
+    def reset_extra(self):
+        super().reset_extra()
+        self.dash_dir = 1
+
+    def _next_attack(self, dx):
+        fast = self.enraged
+        if abs(dx) > 300 and random.random() < 0.5:
+            self._set("dash_windup", 0.35 if fast else 0.5)
+            return
+        order = ["walk", "dash_windup", "crouch", "throw_windup", "dash_windup", "crouch"]
+        choice = order[self.pattern % len(order)]
+        self.pattern += 1
+        durations = {"walk": random.uniform(0.8, 1.4), "dash_windup": 0.35 if fast else 0.5,
+                     "crouch": 0.3 if fast else 0.45, "throw_windup": 0.4 if fast else 0.55}
+        self._set(choice, durations[choice])
+
+    def think(self, dt, level, player, events):
+        b = self.body
+        self.flash = max(0.0, self.flash - dt)
+        if self.state == "sleep":
+            b.vx = 0
+            return
+        dx = player.body.center_x - b.center_x
+        mult = 1.45 if self.enraged else 1.0
+        if self.state in ("walk", "crouch", "dash_windup", "throw_windup", "intro") and abs(dx) > 10:
+            self.facing = 1 if dx > 0 else -1
+
+        if self.phase == 1 and self.hp <= self.max_hp / 2:
+            self.phase = 2
+            self._set("intro", 1.2)
+            events.append(("sound", "boss_roar", 1.0))
+            events.append(("shake", 12, 0.8))
+            for side in (-1, 1):
+                events.append(("summon", b.center_x + side * 240, b.y + 160))
+            return
+
+        s = self.state
+        if s == "intro":
+            b.vx = 0
+            if self.state_time <= 0:
+                self._next_attack(dx)
+        elif s == "walk":
+            b.vx = self.facing * self.speed * mult
+            if wall_ahead(b, level.grid, self.facing):
+                b.vx = 0
+            if self.state_time <= 0:
+                self._next_attack(dx)
+        elif s == "dash_windup":
+            b.vx = 0
+            if self.state_time <= 0:
+                self.dash_dir = self.facing
+                b.vx = self.dash_dir * 620 * mult
+                events.append(("sound", "spring", 0.7))
+                self._set("dash", 0.7)
+        elif s == "dash":
+            if wall_ahead(b, level.grid, self.dash_dir) or self.state_time <= 0:
+                b.vx = 0
+                events.append(("shake", 8, 0.25))
+                self._set("recover", 0.4 if self.enraged else 0.65)
+        elif s == "crouch":
+            b.vx = 0
+            if self.state_time <= 0:
+                b.vy = 900
+                flight = 2 * 900 / GRAVITY
+                b.vx = max(-420.0, min(420.0, dx / flight))
+                self.airborne = True
+                self._set("air", 3.0)
+                events.append(("sound", "jump", 0.8))
+        elif s == "air":
+            if self.airborne and b.on_ground and b.vy <= 0:
+                self.airborne = False
+                b.vx = 0
+                events.append(("sound", "boss_slam", 1.0))
+                events.append(("shake", 13, 0.4))
+                for side in (-1, 1):
+                    events.append(("shockwave", b.center_x + side * (b.w / 2), b.y, side, 340 * mult))
+                self._set("recover", 0.4 if self.enraged else 0.7)
+        elif s == "throw_windup":
+            b.vx = 0
+            if self.state_time <= 0:
+                sx, sy = b.center_x + self.facing * 40, b.y + b.h * 0.7
+                aim = math.atan2(player.body.center_y - sy, player.body.center_x - sx)
+                count = 3 if self.enraged else 2
+                for i in range(count):
+                    angle = aim + (i - (count - 1) / 2) * 0.22
+                    events.append(("projectile", Projectile("proj_fireball.png", sx, sy, math.cos(angle) * 380,
+                                                            math.sin(angle) * 380, self.CANDY_DAMAGE,
+                                                            DeathCause.BOSS, life=3.0, radius=12,
+                                                            color=(255, 120, 130), owner=self)))
+                events.append(("sound", "spit", 0.9))
+                self._set("throw", 0.45)
+        elif s == "throw":
+            b.vx = 0
+            if self.state_time <= 0:
+                self._set("recover", 0.4 if self.enraged else 0.65)
+        elif s == "recover":
+            b.vx = 0
+            if self.state_time <= 0:
+                self._next_attack(dx)
+
+    def contact_box(self):
+        b = self.body
+        return (b.x + 6, b.y, b.right - 6, b.top - 8)
+
+    def attack_boxes(self):
+        if self.state != "dash" or self.dead:
+            return []
+        b = self.body
+        return [((b.x - 4, b.y, b.right + 4, b.top - 8), self.DASH_DAMAGE)]
+
+    def death_duration(self):
+        return 2.0
+
+    def frame(self):
+        a = self.anims
+        s = self.state
+        if self.dead:
+            return seq_frame(a["die"], self.dying, 4, loop=False)
+        if self.flash > 0:
+            hurt = pick_anim(a, "hurt")
+            return hurt[int((0.22 - self.flash) * 18) % len(hurt)]
+        if s in ("sleep", "recover"):
+            return seq_frame(a["idle"], self.anim_time, 6)
+        if s == "intro":
+            return seq_frame(pick_anim(a, "taunt", "idle"), self.anim_time, 6)
+        if s == "walk":
+            return seq_frame(pick_anim(a, "walk", "run"), self.anim_time, 10)
+        if s == "dash":
+            return seq_frame(pick_anim(a, "run", "walk"), self.anim_time, 16)
+        if s in ("dash_windup", "throw_windup", "throw"):
+            return at(pick_anim(a, "attack", "cast", "run"), 0 if s.endswith("windup") else 2)
+        if s == "crouch":
+            return at(pick_anim(a, "jump", "attack", "idle"), 0)
+        if s == "air":
+            return at(pick_anim(a, "jump", "run", "idle"), 1)
+        return seq_frame(a["idle"], self.anim_time, 6)
+
+    def update_sprite(self):
+        Enemy.update_sprite(self)
+        if self.enraged and not self.dead:
+            self.sprite.color = (255, 190, 190)
 
 
 def overlaps(rect_a, rect_b):

@@ -7,23 +7,30 @@ from collections import deque
 import arcade
 
 from entities import assets
-from entities.enemy import Boss, Champion, Enemy, Jumper, Shockwave
+from entities.enemy import Boss, ButlerBoss, Champion, Enemy, FireKing, Jumper, Shockwave
 from entities.player import InputState, Player
 from entities.trap import Coin, Door, HeartPickup, Npc, Saw, Spring
-from settings import (COLOR_GOLD, COLOR_OUTLINE, CONFIG, FIXED_DT, FONT_PIXEL, FONT_TITLE, HEART_HEAL,
-                      KEYS_ATTACK, KEYS_DOWN, KEYS_JUMP, KEYS_LEFT, KEYS_PAUSE, KEYS_RIGHT, KEYS_UP, ROOT,
-                      SCREEN_HEIGHT, SCREEN_WIDTH, SPRING_VELOCITY, STOMP_BOUNCE, TILE)
+from settings import (COLOR_GOLD, CONFIG, FIXED_DT, HEART_HEAL, KEYS_ATTACK, KEYS_DOWN, KEYS_JUMP, KEYS_LEFT,
+                      KEYS_PAUSE, KEYS_RIGHT, KEYS_UP, RESPAWN_BACK_TILES, ROOT, SCREEN_HEIGHT, SCREEN_WIDTH,
+                      SPECIAL_DEATH_WINDOW, SPRING_VELOCITY, STOMP_BOUNCE, TILE)
 from systems.death_manager import DeathCause, DeathManager, Respawn
 from systems.effects import Effects
 from systems.level_manager import HAZARD_BOXES, HAZARD_DAMAGE, LevelSprites, load_level, tile_sprite
 from systems.physics import BREAKABLE, EMPTY, GATE, QBLOCK, USED, rects_overlap, tile_range
 from systems.progression_system import ProgressionSystem
-from systems.score_system import KILL_POINTS, ScoreSystem
+from systems.score_system import ScoreSystem
+from views import screen
 from views.background import Background
+from views.death_fx import DeathTransition, glow_texture, iris_texture
 from views.hud import Hud
+from views.player_fx import PlayerFx
+from views.tip_bubble import TipBubble
 from views.ui import OutlinedText, health_bar
 
-ENEMY_CLASSES = {"zombie": Enemy, "jumper": Jumper, "champion": Champion}
+ENEMY_CLASSES = {"zombie": Enemy, "jumper": Jumper, "champion": Champion, "king": FireKing}
+# Le boss d'un niveau est choisi par "boss"."kind" dans config/levels.json
+BOSS_CLASSES = {"ice_king": Boss, "butler": ButlerBoss}
+SPARK_COLORS = ((255, 214, 90), (255, 240, 200), (255, 160, 120))    # étincelles de la mort spéciale
 
 
 def load_level_config(index=0):
@@ -51,31 +58,35 @@ class GameView(arcade.View):
         self.player = Player(self.progression)
         self.player_list = arcade.SpriteList()
         self.player_list.append(self.player.sprite)
-        self.aura = arcade.Sprite(assets.texture("glow.png"))
-        self.aura_list = arcade.SpriteList()
-        self.aura_list.append(self.aura)
         self.input = InputState()
         self.keys = set()
-        self.camera = arcade.Camera2D()
-        self.gui_camera = arcade.Camera2D()
+        self.camera = screen.make_camera()
+        self.gui_camera = screen.make_camera()
         self.cam_x, self.cam_y = SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2
         self.effects = Effects(self.window.ctx)
+        self.player_fx = PlayerFx(self)
         self.background = Background()
         self.hud = Hud(self)
         self.graves = arcade.SpriteList()
-        self.grave_labels = []
-        self.tip_texts = {}
+        self.tip_bubbles = {}
+        self.play_time = 0.0          # temps de jeu réel (hors pause) pour dater les coups reçus
+        self.special_hit = None       # (cause, play_time) du dernier coup d'un champion ou du boss
+        self.transition = None
+        self.death_outcome = None
         self.pause_title = OutlinedText("PAUSE", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 60, size=60, thickness=4)
         self.pause_help = OutlinedText("Échap : reprendre     R : recommencer     Q : menu",
                                        SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 20, size=20, thickness=2)
         self.time = 0.0
-        self.accumulator = 0.0
         self.state = "play"
         self.state_time = 0.0
-        self.toast_title, self.toast_sub, self.toast_time = "", "", 0.0
         self.killer = None
         self.gate_closed = False
         self.new_run()
+        # Préparé pendant le chargement plutôt qu'en plein jeu : les textures de la 1re mort,
+        # et une 1re image (shaders, envoi des textures et des lettres au GPU : ~50 ms).
+        iris_texture()
+        glow_texture()
+        self.on_draw()
 
     # ------------------------------------------------------------------
     # Mise en place
@@ -86,13 +97,16 @@ class GameView(arcade.View):
         self.score.reset()
         self.death_manager.reset()
         self.graves.clear()
-        self.grave_labels = []
         self.effects.clear()
+        self.special_hit = None
+        self.transition = None
         self.reset_map()
         self.place_player(self.start.x, self.start.bottom)
         self.state = "play"
-        self.show_toast(self.cfg["name"], self.cfg.get("subtitle", ""), 3.5)
         self.audio.play_music(self.cfg["music"])
+
+    def on_show_view(self):
+        screen.set_mouse(self.window, self.state == "paused")
 
     def reset_map(self):
         lvl = self.level
@@ -106,7 +120,8 @@ class GameView(arcade.View):
             if s.kind in ENEMY_CLASSES:
                 self.add_enemy(ENEMY_CLASSES[s.kind](s.x, s.bottom))
             elif s.kind == "boss":
-                self.boss = Boss(s.x, s.bottom, self.cfg["boss"]["hp"])
+                boss_class = BOSS_CLASSES[self.cfg["boss"].get("kind", "ice_king")]
+                self.boss = boss_class(s.x, s.bottom, self.cfg["boss"]["hp"])
                 self.add_enemy(self.boss)
         self.saws = [Saw(s.x, s.bottom + TILE / 2, vertical=s.kind == "saw_v")
                      for s in lvl.spawns if s.kind in ("saw_h", "saw_v")]
@@ -160,9 +175,6 @@ class GameView(arcade.View):
             self.level.grid.set(*cell, GATE if closed else EMPTY)
         self.tiles.gate.visible = closed
 
-    def show_toast(self, title, sub="", duration=2.5):
-        self.toast_title, self.toast_sub, self.toast_time = title, sub, duration
-
     def in_boss_zone(self):
         gx = self.level.gate_x
         return gx is not None and not self.boss_defeated and self.player.body.center_x > gx
@@ -187,8 +199,7 @@ class GameView(arcade.View):
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.M:
-            muted = self.audio.toggle_mute()
-            self.show_toast("Son coupé" if muted else "Son activé", "", 1.2)
+            self.audio.toggle_mute()
             return
         if self.state == "paused":
             if key in KEYS_PAUSE:
@@ -221,18 +232,22 @@ class GameView(arcade.View):
     def on_update(self, delta_time):
         dt = min(delta_time, 0.05)
         self.time += dt
-        self.toast_time = max(0.0, self.toast_time - dt)
+        screen.set_mouse(self.window, self.state == "paused")    # curseur visible seulement en pause
         if self.state == "paused":
             return
-        self.accumulator += dt
-        while self.accumulator >= FIXED_DT:
-            self.step(FIXED_DT)
-            self.accumulator -= FIXED_DT
+        # Le même nombre de pas de physique à chaque image (2 à 60 images/s). L'ancien accumulateur
+        # ajoutait un 3e pas à ~8 % des images, car le minuteur du système est toujours un peu en
+        # retard : Finn et le décor « sautaient » plusieurs fois par seconde. La taille du pas suit le
+        # temps réel écoulé, la vitesse du jeu reste donc exacte.
+        steps = max(1, min(6, round(dt / FIXED_DT)))
+        for _ in range(steps):
+            self.step(dt / steps)
         for coin in self.coins:
             coin.update(self.time)
         for heart in self.hearts:
             heart.update(self.time)
         self.update_glows()
+        self.player_fx.update(dt)
         self.effects.update(dt)
         self.update_camera(dt)
 
@@ -247,6 +262,7 @@ class GameView(arcade.View):
     def step_play(self, dt):
         p, lvl = self.player, self.level
         b = p.body
+        self.play_time += dt
         self.score.tick(dt)
         for ev in p.update(dt, self.input, lvl):
             self.on_player_event(ev)
@@ -281,7 +297,9 @@ class GameView(arcade.View):
             self.safe_timer += dt
             if self.safe_timer > 0.3 and not self.hazard_near():
                 self.safe_timer = 0.0
-                self.safe_positions.append((b.center_x, b.y))
+                last = self.safe_positions[-1] if self.safe_positions else None
+                if last is None or abs(last[0] - b.center_x) >= TILE or abs(last[1] - b.y) >= TILE:
+                    self.safe_positions.append((b.center_x, b.y))
 
     # ------------------------------------------------------------------
     def on_player_event(self, ev):
@@ -289,8 +307,10 @@ class GameView(arcade.View):
         b = self.player.body
         if kind == "jump":
             self.audio.play("jump", 0.5)
+            self.player_fx.on_jump()
         elif kind == "attack":
             self.audio.play("sword", 0.7)
+            self.player_fx.on_attack()
         elif kind == "land":
             self.effects.dust(b.center_x, b.y)
         elif kind == "bump":
@@ -354,11 +374,13 @@ class GameView(arcade.View):
     def hurt_player(self, damage, source_x, cause, killer):
         if not self.player.hurt(damage, source_x, cause):
             return False
+        if cause in (DeathCause.CHAMPION, DeathCause.BOSS):
+            self.special_hit = (cause, self.play_time)
         self.audio.play("hurt")
         self.effects.shake(6, 0.2)
         b = self.player.body
         self.effects.emit(b.center_x, b.center_y, (255, 80, 90), 10, gravity=600)
-        self.effects.float_text(b.center_x, b.top + 14, f"-{damage}", (255, 90, 90), 15)
+        self.player_fx.on_hurt()
         if self.player.dead:
             self.killer = killer
         return True
@@ -384,7 +406,8 @@ class GameView(arcade.View):
             heart.sprite.remove_from_sprite_lists()
             p.heal(HEART_HEAL)
             self.audio.play("powerup")
-            self.effects.float_text(heart.x, heart.y + 20, f"+{HEART_HEAL} PV", (120, 240, 140))
+            self.effects.emit(heart.x, heart.y + 12, (120, 240, 140), 10, speed=(60, 180), gravity=-40,
+                              life=(0.3, 0.6), glow=True)
 
         if b.vy <= 0:
             feet = (b.x + 2, b.y - 2, b.right - 2, b.y + 8)
@@ -398,14 +421,13 @@ class GameView(arcade.View):
         box = p.attack_box()
         if box:
             for e in self.enemies:
-                if e.dead or id(e) in p.hit_ids:
+                if e.dead or e in p.hit_ids:
                     continue
                 er = e.contact_box()
                 if rects_overlap(box, er) and e.take_hit(prog.damage, b.center_x, events):
-                    p.hit_ids.add(id(e))
+                    p.hit_ids.add(e)
                     self.effects.hit((max(box[0], er[0]) + min(box[2], er[2])) / 2, b.center_y + 8)
                     self.effects.shake(3, 0.08)
-                    self.effects.float_text(e.body.center_x, e.body.top + 10, f"-{prog.damage}", (255, 240, 120), 14)
             for pr in self.projectiles:
                 if pr.breakable and not pr.removed and rects_overlap(box, pr.box()):
                     pr.removed = True
@@ -474,14 +496,12 @@ class GameView(arcade.View):
     def on_enemy_dead(self, enemy):
         self.score.add_kill(enemy.score_kind)
         x, y = enemy.body.center_x, enemy.body.center_y
-        self.effects.float_text(x, enemy.body.top + 16, f"+{KILL_POINTS[enemy.score_kind]}", COLOR_GOLD)
         if isinstance(enemy, Boss):
             self.on_boss_defeated()
             return
         color = {"champion": (120, 255, 170)}.get(enemy.score_kind, (190, 220, 120))
         self.effects.burst(x, y, color, 22)
         if isinstance(enemy, Champion):
-            self.show_toast("Champion vaincu !", "Il laisse un coeur et des pièces", 2.2)
             heart = HeartPickup(x, enemy.body.y + 40)
             self.hearts.append(heart)
             self.objects.append(heart.sprite)
@@ -503,7 +523,6 @@ class GameView(arcade.View):
                 e.die([])
         for pr in self.projectiles:
             pr.removed = True
-        self.show_toast("LE ROI DES GLACES EST VAINCU !", "Entre dans la porte pour sortir", 4.0)
 
     def cleanup(self):
         for e in [e for e in self.enemies if e.removed]:
@@ -524,45 +543,69 @@ class GameView(arcade.View):
                 boss.activate(events)
                 self.handle_events(events)
                 self.audio.play_music(self.cfg["boss_music"])
-                self.show_toast(self.cfg["boss"]["name"], "Vaincs-le pour ouvrir la sortie !", 3.0)
         if self.boss_defeated and self.door and self.door.open and rects_overlap((b.x, b.y, b.right, b.top), self.door.box()):
             self.start_victory()
 
     # ------------------------------------------------------------------
     # Mort, renaissance, victoire
     # ------------------------------------------------------------------
+    def death_cause(self):
+        """Qui a tué Finn : si un champion ou le boss l'a touché juste avant, c'est lui qui compte,
+        même si le coup fatal vient d'un zombie, d'un piège ou d'une chute."""
+        cause = self.player.death_cause or DeathCause.NORMAL
+        recent = self.special_hit
+        if cause == DeathCause.NORMAL and recent and self.play_time - recent[1] <= SPECIAL_DEATH_WINDOW:
+            cause = recent[0]
+        return cause
+
     def start_dying(self):
         self.state = "dying"
         self.state_time = 0.0
         self.death_in_boss = self.in_boss_zone()
         self.death_pos = self.last_ground
-        self.toast_time = 0.0
+        self.death_outcome = self.death_manager.handle_death(self.death_cause(), self.death_pos, self.death_in_boss)
+        special = self.death_outcome.offer_upgrade
+        self.transition = DeathTransition(special)
         self.audio.stop_music()
-        self.audio.play("death")
-        self.effects.shake(8, 0.35)
+        b = self.player.body
+        if special:        # la mort qui rend plus fort : Finn s'illumine, sans envahir l'écran
+            self.audio.play("death_special")
+            self.effects.emit(b.center_x, b.center_y, COLOR_GOLD, 24, speed=(90, 240), life=(0.4, 0.8),
+                              gravity=500, size=(2, 4))
+            self.effects.emit(b.center_x, b.center_y, (255, 245, 200), 18, speed=(60, 180), gravity=-60,
+                              life=(0.5, 1.0), glow=True, size=(2, 4))
+            self.effects.shake(9, 0.4)
+        else:              # la mort normale : cendres grises
+            self.audio.play("death")
+            self.effects.emit(b.center_x, b.center_y, (120, 115, 125), 26, speed=(30, 120), gravity=-40,
+                              life=(0.8, 1.6), size=(2, 4))
+            self.effects.shake(8, 0.35)
         self.keys.clear()
         self.sync_input()
 
     def step_dying(self, dt):
         self.state_time += dt
-        self.player.update(dt, self.input, self.level)
-        if self.state_time >= 2.0:
+        self.transition.update(dt)
+        self.player.update(dt * self.transition.time_scale(), self.input, self.level)
+        if self.transition.special and self.state_time < 1.3 and random.random() < dt * 40:
+            b = self.player.body            # étincelles qui montent de Finn
+            self.effects.emit(b.center_x + random.uniform(-18, 18), b.center_y + random.uniform(-24, 10),
+                              random.choice(SPARK_COLORS), 1, speed=(30, 70), angle=(70, 110), life=(0.7, 1.2),
+                              gravity=-120, size=(2, 3.5))
+        if self.transition.done:
             self.finish_death()
 
     def finish_death(self):
         self.state = "dead"
-        cause = self.player.death_cause or DeathCause.NORMAL
-        outcome = self.death_manager.handle_death(cause, self.death_pos, self.death_in_boss)
-        self.add_grave(*self.death_pos, outcome.deaths)
+        self.add_grave(*self.death_pos)
         from views.death_view import DeathCardView
-        self.window.show_view(DeathCardView(self, outcome))
+        self.window.show_view(DeathCardView(self, self.death_outcome))
 
-    def add_grave(self, x, bottom, number):
+    def add_grave(self, x, bottom):
+        """Une tombe muette marque l'endroit de chaque mort (sans numéro)."""
         sprite = tile_sprite("grave", 0, 0)
         sprite.center_x, sprite.center_y = x, bottom + TILE / 2
         self.graves.append(sprite)
-        self.grave_labels.append(arcade.Text(str(number), x, bottom + 38, (255, 255, 255, 210), 9,
-                                             anchor_x="center", font_name=FONT_PIXEL))
 
     def reset_boss(self):
         for e in [e for e in self.enemies if e.summoned]:
@@ -573,31 +616,36 @@ class GameView(arcade.View):
             self.boss.reset()
         self.set_gate(False)
 
-    def safe_spot(self, killer):
-        home_x = killer.home[0] if killer else None
+    def respawn_spot(self, killer):
+        """Quelques cases avant le lieu de la mort, sur un sol sûr et loin du tueur."""
+        death_x = self.death_pos[0]
+        avoid = killer.home[0] if killer is not None else None
         for x, y in reversed(self.safe_positions):
-            if home_x is None or abs(x - home_x) > 6 * TILE:
-                return x, y
+            if abs(x - death_x) < RESPAWN_BACK_TILES * TILE:
+                continue
+            if avoid is not None and abs(x - avoid) < 4 * TILE:
+                continue
+            return x, y
+        if self.safe_positions:
+            return self.safe_positions[0]
         return self.start.x, self.start.bottom
 
     def respawn(self, outcome):
-        """Appelé après l'écran de mort (et le choix de stat éventuel)."""
+        """Appelé après l'écran de mort (et le choix de stat éventuel). La map n'est pas réinitialisée."""
         self.effects.clear()
         for pr in self.projectiles:
             pr.sprite.remove_from_sprite_lists()
         self.projectiles = []
+        self.transition = None
+        self.special_hit = None
         if outcome.respawn == Respawn.BOSS_GATE:
             self.reset_boss()
             x, bottom = self.boss_respawn.x, self.boss_respawn.bottom
-        elif outcome.respawn == Respawn.HERE:
+        else:
             killer = self.killer
             if killer is not None and killer in self.enemies:
                 killer.reset()
-            x, bottom = self.safe_spot(killer)
-        else:
-            self.reset_map()
-            self.score.reset_attempt()
-            x, bottom = self.start.x, self.start.bottom
+            x, bottom = self.respawn_spot(killer)
         self.place_player(x, bottom)
         self.player.invuln = 1.8
         self.state = "play"
@@ -611,9 +659,6 @@ class GameView(arcade.View):
         else:
             color = COLOR_GOLD if outcome.offer_upgrade else (190, 230, 255)
             self.effects.emit(cx, cy, color, 36, speed=(100, 320), gravity=-100, life=(0.5, 1.1), glow=True, size=(2, 5))
-        where = {Respawn.START: "Retour au début de la map !", Respawn.HERE: "Tu renais sur place !",
-                 Respawn.BOSS_GATE: "Retour devant l'arène !"}
-        self.show_toast(f"Vies restantes : {self.death_manager.lives_left}", where[outcome.respawn], 2.4)
 
     def start_victory(self):
         self.state = "victory"
@@ -654,16 +699,7 @@ class GameView(arcade.View):
         self.camera.position = (round(self.cam_x + ox), round(self.cam_y + oy))
 
     def update_glows(self):
-        prog, b = self.progression, self.player.body
-        strength = prog.aura_strength
-        pulse = 1 + math.sin(self.time * 6) * 0.08
-        self.aura.center_x, self.aura.center_y = b.center_x, b.center_y + 4
-        self.aura.scale = (1.6 + strength * 1.5) * pulse
-        self.aura.color = (255, 200, 70) if prog.power < 3 else (255, 140, 40)
-        self.aura.alpha = 0 if self.player.dead or self.state == "victory" else int(180 * strength)
-        if strength > 0.5 and self.state == "play" and random.random() < strength * 0.4:
-            self.effects.emit(b.x + random.uniform(0, b.w), b.y + random.uniform(0, 24), (255, 210, 90), 1,
-                              speed=(30, 70), angle=(80, 100), gravity=-60, life=(0.4, 0.8), glow=True, size=(1.5, 2.5))
+        """Halos des champions et du boss (celui de Finn est géré par PlayerFx)."""
         for e in self.enemies:
             if e.glow:
                 e.glow.center_x, e.glow.center_y = e.body.center_x, e.body.center_y
@@ -684,36 +720,29 @@ class GameView(arcade.View):
     # ------------------------------------------------------------------
     # Dessin
     # ------------------------------------------------------------------
-    def tip_text(self, index):
-        if index not in self.tip_texts:
+    def tip_bubble(self, index):
+        if index not in self.tip_bubbles:
             tips = self.cfg.get("tips", [])
-            message = tips[index] if index is not None and index < len(tips) else "..."
-            self.tip_texts[index] = arcade.Text(message, 0, 0, COLOR_OUTLINE, 13, width=320, multiline=True,
-                                                font_name=FONT_TITLE, anchor_y="top")
-        return self.tip_texts[index]
+            self.tip_bubbles[index] = TipBubble(tips[index]) if index is not None and index < len(tips) else None
+        return self.tip_bubbles[index]
 
     def draw_bubbles(self):
         if self.state != "play":
             return
         for npc in self.npcs:
-            if not npc.talking:
+            bubble = self.tip_bubble(npc.tip) if npc.talking else None
+            if bubble is None:
                 continue
-            text = self.tip_text(npc.tip)
-            w, h = 348, text.content_height + 26
             bottom = npc.bottom + (84 if npc.kind == "jake" else 60)
             view_left = self.camera.position[0] - SCREEN_WIDTH / 2 + 10
-            left = min(max(npc.x - w / 2, view_left), view_left + SCREEN_WIDTH - 20 - w)
-            arcade.draw_triangle_filled(npc.x - 12, bottom + 2, npc.x + 12, bottom + 2, npc.x, bottom - 16,
-                                        (255, 255, 255))
-            arcade.draw_lrbt_rectangle_filled(left, left + w, bottom, bottom + h, (255, 255, 255))
-            arcade.draw_lrbt_rectangle_outline(left, left + w, bottom, bottom + h, COLOR_OUTLINE, 3)
-            text.x, text.y = left + 14, bottom + h - 13
-            text.draw()
+            left = min(max(npc.x - bubble.width / 2, view_left), view_left + SCREEN_WIDTH - 20 - bubble.width)
+            bubble.draw(left, bottom, npc.x)
 
     def draw_enemy_bars(self):
         """Petite barre de vie au-dessus de chaque monstre visible (sauf le boss, qui a la sienne)."""
         view_left = self.camera.position[0] - SCREEN_WIDTH / 2 - 80
         view_right = view_left + SCREEN_WIDTH + 160
+        # dessin direct : groupées dans une SpriteList, ces barres qui bougent sans cesse coûtaient plus cher (mesuré)
         for e in self.enemies:
             if e.dead or not e.health_bar or not view_left < e.body.center_x < view_right:
                 continue
@@ -721,8 +750,8 @@ class GameView(arcade.View):
             health_bar(e.body.center_x - w / 2, e.body.top + 12, w, 6, e.hp, e.max_hp, trail=e.hp_shown)
 
     def on_draw(self):
-        self.clear()
-        self.gui_camera.use()
+        screen.begin_frame(self, self.gui_camera)
+        screen.fit(self.camera)
         cx, cy = self.camera.position
         self.background.draw(cx, cy, self.time, self.dusk_amount(), self.cave_amount())
         self.camera.use()
@@ -730,14 +759,13 @@ class GameView(arcade.View):
         additive = (ctx.SRC_ALPHA, ctx.ONE)   # additif qui respecte l'alpha du halo
         self.tiles.deco.draw(pixelated=True)
         self.graves.draw(pixelated=True)
-        for label in self.grave_labels:
-            label.draw()
         self.tiles.terrain.draw(pixelated=True)
         self.tiles.dynamic.draw(pixelated=True)
         self.objects.draw(pixelated=True)
         self.enemy_glows.draw(blend_function=additive)
-        self.aura_list.draw(blend_function=additive)
+        self.player_fx.draw_aura(additive)
         self.enemy_sprites.draw(pixelated=True)
+        self.player_fx.draw_ghosts()
         self.player_list.draw(pixelated=True)
         self.projectile_sprites.draw(pixelated=True)
         self.tiles.gate.draw(pixelated=True)
@@ -746,6 +774,9 @@ class GameView(arcade.View):
         self.draw_bubbles()
         self.gui_camera.use()
         self.hud.draw()
+        if self.state == "dying" and self.transition:
+            b = self.player.body
+            self.transition.draw(b.center_x - cx + SCREEN_WIDTH / 2, b.center_y - cy + SCREEN_HEIGHT / 2, self.time)
         if self.state == "paused":
             arcade.draw_lrbt_rectangle_filled(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT, (10, 5, 20, 170))
             self.pause_title.draw()

@@ -1,4 +1,4 @@
-"""Constantes globales du jeu « Finn sans Fin »."""
+"""Constantes globales du jeu « The Finning »."""
 from pathlib import Path
 
 import arcade
@@ -13,7 +13,8 @@ SAVES = ROOT / "saves"
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-SCREEN_TITLE = "Finn sans Fin"
+SCREEN_TITLE = "The Finning"
+FULLSCREEN = False       # image logique 1280x720 agrandie et centrée (voir views/screen.py)
 
 TILE = 32
 
@@ -45,9 +46,12 @@ ATTACK_REACH = 34
 ATTACK_REACH_PER_FORCE = 7
 HEART_HEAL = 35          # PV rendus par un cœur ramassé
 
-# --- Polices (chargées depuis assets/fonts) ---
+# --- Mort et renaissance ---
+SPECIAL_DEATH_WINDOW = 5.0   # s : un champion ou le boss qui a touché Finn juste avant sa mort compte comme tueur
+RESPAWN_BACK_TILES = 3       # Finn renaît au moins à 3 cases du lieu de sa mort
+
+# --- Police : une seule pour tout le jeu (celle de l'écran d'accueil) ---
 FONT_TITLE = "Luckiest Guy"
-FONT_PIXEL = "Press Start 2P"
 
 # --- Couleurs ---
 COLOR_TEXT = (255, 255, 255)

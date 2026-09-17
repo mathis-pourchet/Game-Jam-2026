@@ -1,15 +1,55 @@
-"""Écran « Tu es mort ! » : compteur, âge, vieillissement, puis renaissance."""
+"""Après la mort : le nouvel âge de Finn et une petite pique tirée au hasard.
+
+Une mort normale reste dans le noir. Une mort spéciale reste sobre elle aussi, mais dans une
+pénombre chaude : un halo doré qui respire derrière le texte, quelques braises qui montent et
+un texte couleur or pâle (voir views/death_fx.py), puis elle mène au choix du pouvoir.
+"""
+import math
+import random
+
 import arcade
 
-from settings import COLOR_GOLD, KEYS_CONFIRM, SCREEN_HEIGHT, SCREEN_WIDTH
-from systems.death_manager import DeathCause, Respawn
+from settings import KEYS_CONFIRM, SCREEN_HEIGHT, SCREEN_WIDTH
+from views import screen
+from views.death_fx import EMBER, GOLD, draw_glow
 from views.ui import OutlinedText
 
-CAUSES = {
-    DeathCause.NORMAL: "Terrassé par un zombie ou un piège...",
-    DeathCause.CHAMPION: "Vaincu par un sorcier squelette (CHAMPION) !",
-    DeathCause.BOSS: "Gelé par le Roi des Glaces !",
-}
+AUTO_CONTINUE = 2.8     # s avant de continuer tout seul (le temps de lire la pique)
+SKIP_AFTER = 0.5        # s avant qu'une touche puisse passer l'écran
+PALE_GOLD = (240, 212, 140)
+MOTES = 18              # braises dorées de la mort spéciale
+TAUNT_DELAY = 0.35      # s avant que la pique apparaisse, sous l'âge
+
+TAUNTS = (
+    "La vieillesse, c'est pas une stratégie.",
+    "Tu comptes finir avant la retraite ?",
+    "Jake aurait déjà fini. En dormant.",
+    "Courageux. Pas doué, mais courageux.",
+    "Les zombies commencent à te reconnaître.",
+    "C'était voulu, bien sûr.",
+)
+_last_taunt = None
+
+
+def pick_taunt():
+    """Une pique au hasard, jamais deux fois la même d'affilée."""
+    global _last_taunt
+    _last_taunt = random.choice([t for t in TAUNTS if t != _last_taunt])
+    return _last_taunt
+
+
+def draw_motes(t, w, h, alpha):
+    """Petites braises qui montent lentement ; positions tirées de l'indice, sans état."""
+    for i in range(MOTES):
+        x = (i * 0.618 % 1) * w + math.sin(t * 1.3 + i) * 12
+        speed = 35 + (i * 37 % 40)
+        y = (i * 0.391 % 1) * h + t * speed
+        y %= h + 20
+        fade = min(1.0, y / 120, (h - y) / 160) if 0 < y < h else 0.0
+        size = 4 if i % 3 else 6
+        a = alpha * fade * (0.55 + 0.45 * math.sin(t * 3 + i * 2.1))
+        if a > 1:
+            arcade.draw_lrbt_rectangle_filled(x, x + size, y, y + size, (*GOLD, int(a)))
 
 
 class DeathCardView(arcade.View):
@@ -17,53 +57,31 @@ class DeathCardView(arcade.View):
         super().__init__()
         self.game = game
         self.outcome = outcome
+        self.special = outcome.offer_upgrade
         self.time = 0.0
-        prog = game.progression
-        cx, cy = SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2
-        self.lines = [
-            OutlinedText("TU ES MORT !", cx, cy + 150, color=(255, 90, 110), size=72, thickness=5),
-            OutlinedText(CAUSES.get(outcome.cause, ""), cx, cy + 92, size=24),
-            OutlinedText(f"Morts : {outcome.deaths} / {outcome.max_deaths}", cx, cy + 30, size=34),
-            OutlinedText(f"Finn a maintenant {prog.age_years} ans", cx, cy - 16, size=24, color=(200, 220, 255)),
-        ]
-        if outcome.game_over:
-            info, color = "Trop de morts... toutes tes forces sont perdues !", (255, 90, 90)
-        elif outcome.stat_lost:
-            label = prog.stats_cfg[outcome.stat_lost]["label"]
-            info, color = f"Le temps passe... tu perds 1 niveau de {label} !", (255, 170, 110)
-        elif outcome.aging_stage > 0:
-            info, color = "Finn vieillit... ses forces l'abandonnent.", (255, 170, 110)
-        elif outcome.offer_upgrade:
-            info, color = "Mais la mort te rend PLUS FORT...", COLOR_GOLD
-        elif outcome.respawn == Respawn.BOSS_GATE:
-            info, color = "Tu reviens devant l'arène du Roi des Glaces.", (255, 255, 255)
-        else:
-            info, color = "Retour au tout début de la map !", (255, 255, 255)
-        self.lines.append(OutlinedText(info, cx, cy - 76, size=26, color=color))
-        left = outcome.max_deaths - outcome.deaths
-        if not outcome.game_over:
-            warn = "DERNIÈRE CHANCE !" if left == 1 else f"Encore {left} morts avant de tout perdre"
-            if outcome.became_older and outcome.aging_stage == 1:
-                warn = "Finn devient VIEUX : chaque mort lui coûtera une stat"
-            self.lines.append(OutlinedText(warn, cx, cy - 120, size=18, thickness=2,
-                                           color=(255, 120, 120) if left <= 2 else (230, 230, 240)))
-        self.hint = OutlinedText("Appuie sur ENTRÉE", cx, 70, size=18, thickness=2)
+        self.camera = screen.make_camera()
+        color = PALE_GOLD if self.special else (215, 215, 225)
+        self.text = OutlinedText(f"{game.progression.age_years} ans", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 10,
+                                 color=color, size=130, thickness=8)
+        self.taunt = OutlinedText(pick_taunt(), SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 110,
+                                  color=(205, 180, 125) if self.special else (160, 160, 175), size=30, thickness=3)
 
     def on_show_view(self):
+        screen.set_mouse(self.window, False)
         if self.outcome.aging_stage > 0 and not self.outcome.game_over:
             self.game.audio.play("aging")
 
     def on_update(self, delta_time):
         self.time += delta_time
-        if self.time > 5.0:
+        if self.time > AUTO_CONTINUE:
             self.proceed()
 
     def on_key_press(self, key, modifiers):
-        if self.time > 0.7 and key in KEYS_CONFIRM | {arcade.key.J, arcade.key.X}:
+        if self.time > SKIP_AFTER and key in KEYS_CONFIRM | {arcade.key.J, arcade.key.X}:
             self.proceed()
 
     def on_mouse_press(self, x, y, button, modifiers):
-        if self.time > 0.7:
+        if self.time > SKIP_AFTER:
             self.proceed()
 
     def proceed(self):
@@ -80,13 +98,17 @@ class DeathCardView(arcade.View):
             self.window.show_view(self.game)
 
     def on_draw(self):
-        self.game.on_draw()
-        alpha = min(200, int(self.time * 500))
-        arcade.draw_lrbt_rectangle_filled(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT, (25, 0, 20, alpha))
-        for i, line in enumerate(self.lines):
-            appear = min(1.0, max(0.0, (self.time - i * 0.15) * 4))
-            if appear > 0:
-                line.set_alpha(255 * appear)
-                line.draw()
-        if self.time > 0.7 and int(self.time * 2) % 2 == 0:
-            self.hint.draw()
+        screen.begin_frame(self, self.camera)
+        w, h = SCREEN_WIDTH, SCREEN_HEIGHT
+        if self.special:
+            arcade.draw_lrbt_rectangle_filled(0, w, 0, h, EMBER)
+            glow = min(1.0, self.time / 0.5)
+            pulse = 0.85 + 0.15 * math.sin(self.time * 2.4)
+            draw_glow(w / 2, h / 2 - 5, 760 * pulse, GOLD, 95 * glow)
+            draw_motes(self.time, w, h, 170 * glow)
+        appear = min(1.0, self.time / 0.25)
+        self.text.set_position(w / 2, h / 2 - 10 + (1 - appear) ** 2 * 60)    # l'âge tombe en place
+        self.text.set_alpha(255 * appear)
+        self.text.draw()
+        self.taunt.set_alpha(255 * min(1.0, max(0.0, (self.time - TAUNT_DELAY) / 0.3)))
+        self.taunt.draw()

@@ -3,7 +3,7 @@ import json
 
 from settings import SAVES
 
-KILL_POINTS = {"zombie": 100, "jumper": 150, "champion": 500, "boss": 3000}
+KILL_POINTS = {"zombie": 100, "jumper": 150, "champion": 500, "king": 700, "boss": 3000}
 RANKS = [
     (0, "S", "Héros légendaire"),
     (2, "A", "Grand aventurier"),
@@ -28,10 +28,6 @@ class ScoreSystem:
         self.kill_points = 0
         self.elapsed = 0.0
         self.boss_defeated = False
-
-    def reset_attempt(self):
-        """Une mort « normale » remet la map à zéro : on perd les pièces de la tentative."""
-        self.coins = 0
 
     def tick(self, dt):
         self.elapsed += dt

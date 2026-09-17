@@ -428,6 +428,31 @@ def sfx_rebirth():
     return out
 
 
+def sfx_death_special():
+    """Mort qui rend plus fort : impact grave, souffle qui monte, puis lumière (la mineur -> la majeur)."""
+    d = 2.2
+    out = silence(d)
+    place(out, tone(95, 0.55, "triangle", freq_end=38, attack=0.001, release=0.3), 0, 1.0)
+    place(out, noise(0.35, hold=2200, attack=0.001, release=0.25, lowpass_hz=900), 0, 0.7)
+    place(out, noise(0.9, hold=SR, attack=0.8, release=0.05, highpass_hz=2500), 0.15, 0.28)
+    arp = ["A3", "C4", "E4", "A4", "C5", "E5", "A5", "C#6", "E6"]
+    for i, name in enumerate(arp):
+        place(out, tone(name, 0.22, "triangle", attack=0.004, release=0.15), 0.35 + i * 0.07, 0.55)
+        place(out, tone(name, 0.1, "square", duty=0.125, attack=0.002, release=0.06), 0.35 + i * 0.07, 0.12)
+    t0 = 1.0
+    for name, duty, vol in (("A5", 0.25, 0.32), ("C#6", 0.5, 0.26), ("E6", 0.125, 0.26), ("A6", 0.125, 0.16)):
+        place(out, tone(name, 1.15, "square", duty=duty, vol=vol, attack=0.03, release=0.6, curve=1.0,
+                        vib=0.18, vib_rate=6.5), t0)
+    place(out, tone("A3", 1.15, "triangle", attack=0.02, release=0.6, curve=1.0), t0, 0.5)
+    sparkle = ["A6", "C#7", "E7", "A7", "C#8"]
+    t = 1.0
+    while t < 2.05:
+        place(out, tone(random.choice(sparkle), 0.04, "square", duty=0.125, attack=0.001, release=0.02), t,
+              0.16 * (1.0 - (t - 1.0) / 1.1))
+        t += random.uniform(0.03, 0.06)
+    return echo(out, 0.11, feedback=0.3, repeats=2, wrap=False)
+
+
 def sfx_aging():
     d = 1.5
     out = silence(d)
@@ -940,6 +965,7 @@ SOUNDS = [
     ("stomp.wav", sfx_stomp, SFX_PEAK),
     ("hurt.wav", sfx_hurt, SFX_PEAK),
     ("death.wav", sfx_death, SFX_PEAK),
+    ("death_special.wav", sfx_death_special, SFX_PEAK),
     ("rebirth.wav", sfx_rebirth, SFX_PEAK),
     ("aging.wav", sfx_aging, SFX_PEAK),
     ("select.wav", sfx_select, SFX_PEAK),
